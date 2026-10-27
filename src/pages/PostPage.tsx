@@ -7,6 +7,7 @@ import { friendly } from '../lib/errors'
 import { useAuth } from '../store/auth'
 import PostCard, { type CardPost } from '../components/PostCard'
 import Avatar from '../components/Avatar'
+import RichText from '../components/RichText'
 import { Status } from './Feed'
 
 const COMMENT_MAX = 500
@@ -96,7 +97,7 @@ export default function PostPage() {
           <li key={c.id} className="group flex gap-3 text-sm">
             <Avatar src={c.author?.avatar_url} name={c.author?.username} size={28} />
             <div className="min-w-0 flex-1">
-              <p className="break-words"><Link to={`/u/${c.author?.username}`} className="mr-1 font-semibold">{c.author?.username}</Link>{c.body}</p>
+              <p className="break-words"><Link to={`/u/${c.author?.username}`} className="mr-1 font-semibold">{c.author?.username}</Link><RichText text={c.body} /></p>
               <p className="mt-0.5 flex items-center gap-3 text-xs text-neutral-400">
                 <span>{timeAgo(c.created_at)}</span>
                 {canRemove(c) && (confirmId === c.id

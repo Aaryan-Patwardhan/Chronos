@@ -16,6 +16,7 @@ import Settings from './pages/Settings'
 import EditProfile from './pages/EditProfile'
 import FollowList from './pages/FollowList'
 import LikesList from './pages/LikesList'
+import TagPage from './pages/TagPage'
 
 export default function App() {
   const { session, me, ready, settingUp } = useAuth()
@@ -28,6 +29,7 @@ export default function App() {
       <Route element={<Layout />}>
         <Route index element={<Feed />} />
         <Route path="explore" element={<Explore />} />
+        <Route path="t/:tag" element={<TagPage />} />
         <Route path="reels" element={<Reels />} />
         <Route path="new" element={<NewPost />} />
         <Route path="u/:username" element={<Profile />} />

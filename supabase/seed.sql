@@ -1,4 +1,5 @@
--- Chronos demo data: 30 demo accounts with interests, 200 posts, follows and
+-- Chronos demo data: 30 demo accounts with interests, 200 posts (each with its
+-- own photo; 200 Wikimedia Commons photos, see demo-image-credits.json), follows and
 -- likes, generated inside Postgres (fixed random seed → same data each run).
 -- Safe to re-run: deletes previous demo accounts first (cascades to their
 -- posts, follows, likes). Real users are not touched.
@@ -48,7 +49,8 @@ begin
             -- scripts/upload-demo-images.mjs under the @chronos account;
             -- credits in supabase/demo-image-credits.json).
             'https://obinuxhvezlvtqtzsnmj.supabase.co/storage/v1/object/public/media/2603b74f-35fc-420b-bcda-375b02e9af9f/demo/'
-              || main || '-' || (1 + (i % 8)) || '.jpg',
+              -- one unique photo per post: <topic>-<n>.jpg, n = nth post of that topic
+              || main || '-' || (select count(*) + 1 from posts where image_url like '%/demo/' || main || '-%') || '.jpg',
             (caps -> main ->> floor(random() * 4)::int) || ' #' || main,
             array[main],
             now() - make_interval(mins => floor(random() * 7 * 24 * 60)::int));

@@ -381,3 +381,23 @@ create policy "media delete own folder" on storage.objects for delete to authent
 drop policy if exists "media read own folder" on storage.objects;
 create policy "media read own folder" on storage.objects for select to authenticated
   using (bucket_id = 'media' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+-- ── Module 7: search ────────────────────────────────────────────────────
+create extension if not exists pg_trgm with schema extensions;
+-- Trigram indexes: fast "contains" search on usernames and names at scale.
+create index if not exists profiles_username_trgm on profiles using gin (username extensions.gin_trgm_ops);
+create index if not exists profiles_full_name_trgm on profiles using gin (full_name extensions.gin_trgm_ops);
+-- Topic search: tags starting with the query, most-used first; an empty
+-- query returns the most popular topics. Runs as the caller (RLS applies).
+create or replace function search_tags(q text) returns table (tag text, posts bigint)
+language sql stable security invoker set search_path = public as $$
+  select t as tag, count(*) as posts
+  from posts, unnest(tags) as t
+  where type = 'post'
+    and t like regexp_replace(lower(coalesce(q, '')), '[^a-z0-9_]', '', 'g') || '%'
+  group by t
+  order by count(*) desc, t
+  limit 10;
+$$;
+revoke execute on function search_tags(text) from public, anon;
+grant execute on function search_tags(text) to authenticated;

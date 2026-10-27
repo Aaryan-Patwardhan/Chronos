@@ -9,6 +9,7 @@ import { useAuth } from '../store/auth'
 import Avatar from './Avatar'
 import WhyModal from './WhyModal'
 import PostImage from './PostImage'
+import RichText from './RichText'
 
 export type CardPost = {
   id: string
@@ -210,7 +211,7 @@ export default function PostCard({ post, surface, onHide, onDeleted }: Props) {
               <button className="btn-secondary" disabled={busy} onClick={() => setEditing(false)}>Cancel</button>
             </div>
           </div>
-        ) : caption && <p className="whitespace-pre-line break-words"><Link to={`/u/${name}`} className="mr-1 font-semibold">{name}</Link>{caption}</p>}
+        ) : caption && <p className="whitespace-pre-line break-words"><Link to={`/u/${name}`} className="mr-1 font-semibold">{name}</Link><RichText text={caption} /></p>}
         {post.comment_count > 0 && <Link to={`/p/${post.id}${from}#comments`} className="block text-neutral-500">View {post.comment_count === 1 ? '1 comment' : `all ${post.comment_count} comments`}</Link>}
         {note && <p className="rounded-md bg-neutral-100 px-3 py-2 text-neutral-700">{note}</p>}
       </div>

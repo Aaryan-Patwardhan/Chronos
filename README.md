@@ -14,6 +14,7 @@ An Instagram-style social app built for Code Hackathon 2026: photo posts, profil
 | Profiles, edit profile (photo, name, username, bio), followers / following | Done, tested |
 | Photo posts (shrunk in the browser before upload), captions, topics, edit caption, delete | Done, tested |
 | Home feed ranked on the server (~0.7–1 s), "Why am I seeing this?", see fewer, report, feed preferences | Done, tested |
+| Explore (posts from people you don't follow, ranked), search people and #topics, topic pages, tappable #hashtags and @mentions | Done, tested |
 | Likes (double-tap, who liked), comments (delete own, authors moderate), private Saved tab, share | Done, tested |
 | Direct messages (real time, sent/seen ticks, offline outbox) | Built |
 | Notifications (likes, comments, follows) | Built |
@@ -34,14 +35,14 @@ cp .env.example .env.local   # fill in your Supabase URL and publishable key
 pnpm dev                     # http://localhost:5173 — also runs api/ locally
 ```
 
-Database: run `supabase/schema.sql`, then `supabase/seed.sql` (30 demo accounts, 200 posts) in your Supabase project. In Auth settings, turn off "Confirm email" for a one-minute sign-up.
+Database: run `supabase/schema.sql`, then `supabase/seed.sql` (30 demo accounts, 200 posts, each with its own photo) in your Supabase project. In Auth settings, turn off "Confirm email" for a one-minute sign-up.
 
 | Command | What it does |
 |---|---|
 | `pnpm dev` | Dev server with the `/api` functions |
 | `pnpm build` | Type-check and production build |
 | `pnpm test` | Ranking unit tests |
-| `node tests/m1-accounts.e2e.mjs` | End-to-end checks (also `m2-profiles`, `m3-posts`, `m4-feed`, `m8-engagement`) against your Supabase project — creates throwaway test accounts. `m4-feed` also needs `pnpm dev` running (or `CHRONOS_API=<url>`) |
+| `node tests/m1-accounts.e2e.mjs` | End-to-end checks (also `m2-profiles`, `m3-posts`, `m4-feed`, `m7-explore`, `m8-engagement`) against your Supabase project — creates throwaway test accounts. `m4-feed` and `m7-explore` also need `pnpm dev` running (or `CHRONOS_API=<url>`) |
 
 ## Project structure
 

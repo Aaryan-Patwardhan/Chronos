@@ -84,6 +84,7 @@ const urls = [...new Set(sample.data.map((r) => r.image_url))]
 const statuses = await Promise.all(urls.slice(0, 15).map((u) => fetch(u, { method: 'HEAD' }).then((r) => r.status)))
 check('demo photos load from our own storage (15 sampled)', statuses.every((st) => st === 200), statuses.join(','))
 check('all demo posts use our storage', sample.data.every((r) => r.image_url.includes('.supabase.co/storage/')), `${urls.length} distinct photos`)
+check('every demo post has its own photo (no repeats in Explore)', urls.length === sample.data.length, `${urls.length} photos for ${sample.data.length} posts`)
 
 const passed = results.filter(Boolean).length
 console.log(`\n${passed}/${results.length} passed`)
