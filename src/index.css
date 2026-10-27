@@ -41,5 +41,5 @@ body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
 @media (prefers-reduced-motion: reduce) { .heart-burst { animation: none; } }
 
 /* Horizontal chip rows: scroll by swipe, no visible scrollbar */
-.no-scrollbar { scrollbar-width: none; }
-.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar, .scrollbar-hide { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar, .scrollbar-hide::-webkit-scrollbar { display: none; }

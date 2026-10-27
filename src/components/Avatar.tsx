@@ -7,6 +7,12 @@ export default function Avatar({ src, name, size = 32, className = '' }: { src?:
       height={size}
       className={`shrink-0 rounded-full bg-neutral-200 object-cover ${className}`}
       style={{ width: size, height: size }}
+      onError={(e) => {
+        const fallback = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name ?? '?')}`
+        if (e.currentTarget.src !== fallback) {
+          e.currentTarget.src = fallback
+        }
+      }}
     />
   )
 }

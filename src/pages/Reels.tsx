@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router'
+import { useCallback, useRef, useState } from 'react'
+import { useNavigate } from 'react-router'
 import ReelPlayer from '../components/ReelPlayer'
+import Avatar from '../components/Avatar'
 import type { Reel } from '../types/reels'
 import { MOCK_REELS } from '../data/mockReels'
 import { formatCount } from '../lib/format'
 
 export default function Reels() {
+  const navigate = useNavigate()
   const [reels] = useState<Reel[]>(MOCK_REELS)
   const [activeIndex, setActiveIndex] = useState(0)
   const [showPlayer, setShowPlayer] = useState(false)
@@ -30,7 +32,6 @@ export default function Reels() {
 
   const handleLike = useCallback((reelId: string) => {
     // In a real app, this would call the API
-    console.log('Like reel:', reelId)
   }, [])
 
   const handleShare = useCallback((reelId: string) => {
@@ -42,14 +43,12 @@ export default function Reels() {
   }, [reels])
 
   const handleSave = useCallback((reelId: string) => {
-    console.log('Save reel:', reelId)
   }, [])
 
   const handleProfile = useCallback((username: string) => {
     setShowPlayer(false)
-    // Navigate to profile
-    window.location.href = `/u/${username}`
-  }, [])
+    navigate(`/u/${username}`)
+  }, [navigate])
 
   if (!showPlayer) {
     return (
@@ -73,7 +72,7 @@ export default function Reels() {
         </div>
 
         <div className="grid grid-cols-2 gap-2 p-2">
-          {reels.map((reel, index) => (
+          {reels.map((reel: Reel, index: number) => (
             <ReelCard
               key={reel.id}
               reel={reel}
@@ -109,7 +108,7 @@ export default function Reels() {
         </div>
 
         <div className="grid grid-cols-2 gap-2 p-2">
-          {reels.map((reel, index) => (
+          {reels.map((reel: Reel, index: number) => (
             <ReelCard
               key={reel.id}
               reel={reel}
@@ -148,24 +147,19 @@ function ReelCard({ reel, onClick }: { reel: Reel; onClick: () => void }) {
         className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
         loading="lazy"
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-      <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
-        <div>
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+      <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between text-left">
+        <div className="min-w-0 flex-1 mr-2">
           <p className="text-white font-medium text-sm truncate">{reel.caption}</p>
-          <div className="flex items-center gap-2 mt-1">
-            <img
-              src={reel.avatar_url}
-              alt=""
-              className="w-5 h-5 rounded-full"
-            />
-            <span className="text-white text-xs font-medium">{reel.username}</span>
+          <div className="flex items-center gap-1.5 mt-1">
+            <Avatar src={reel.avatar_url} name={reel.username} size={20} />
+            <span className="text-white text-xs font-medium truncate">@{reel.username}</span>
           </div>
         </div>
-        <div className="flex items-center gap-3 text-white">
-          <span className="flex items-center gap-1 text-sm font-medium">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M23 21a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2v14z" />
-              <circle cx="12" cy="12" r="4" />
+        <div className="flex shrink-0 items-center gap-1 text-white">
+          <span className="flex items-center gap-1 text-xs font-medium">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polygon points="5 3 19 12 5 21 5 3" />
             </svg>
             {formatCount(reel.view_count)}
           </span>
