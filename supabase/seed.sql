@@ -1,8 +1,15 @@
 -- Chronos demo data: 30 demo accounts with interests, 200 posts (each with its
 -- own photo; 200 Wikimedia Commons photos, see demo-image-credits.json), follows and
 -- likes, generated inside Postgres (fixed random seed → same data each run).
--- Safe to re-run: deletes previous demo accounts first (cascades to their
--- posts, follows, likes). Real users are not touched.
+-- FOR A NEW PROJECT ONLY: it refuses to run if demo accounts already exist,
+-- because replacing them would also delete real users' likes, comments and
+-- follows on demo posts.
+do $$ begin
+  if exists (select 1 from profiles where is_demo) then
+    raise exception 'Demo data is already installed. Refusing to run: it would delete real users'' likes, comments and follows on demo posts.';
+  end if;
+end $$;
+
 do $$
 declare
   firsts text[] := array['aarav','isha','kabir','meera','rohan','sana','vikram','ananya','arjun','diya',

@@ -35,7 +35,7 @@ cp .env.example .env.local   # fill in your Supabase URL and publishable key
 pnpm dev                     # http://localhost:5173 — also runs api/ locally
 ```
 
-Database: run `supabase/schema.sql`, then `supabase/seed.sql` (30 demo accounts, 200 posts, each with its own photo) in your Supabase project. In Auth settings, turn off "Confirm email" for a one-minute sign-up.
+Database (new, empty Supabase project only): run `supabase/schema.sql`, then `supabase/seed.sql` (30 demo accounts, 200 posts, each with its own photo). Both scripts refuse to run on a database that already has Chronos data — change a live database with a small migration instead. In Auth settings, turn off "Confirm email" for a one-minute sign-up.
 
 | Command | What it does |
 |---|---|

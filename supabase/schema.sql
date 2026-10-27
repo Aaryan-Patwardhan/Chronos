@@ -1,8 +1,13 @@
 -- Chronos — database schema (applied 2026-10-27 through the Supabase MCP).
--- Safe to re-run: drops and recreates the app tables (not auth users).
-
-drop table if exists feed_traces, feed_prefs, notifications, messages, reports,
-  see_less, saves, comments, likes, follows, posts, profiles cascade;
+-- FOR A NEW, EMPTY PROJECT ONLY. It refuses to run if the app tables already
+-- exist, because re-running it would delete every post, follow, like,
+-- comment and message (this happened once on 2026-10-27). Change a live
+-- database with a small migration instead.
+do $$ begin
+  if to_regclass('public.profiles') is not null then
+    raise exception 'Chronos schema is already installed. Refusing to run: it would delete all user data. Use a migration for changes.';
+  end if;
+end $$;
 
 -- ── Profiles ────────────────────────────────────────────────────────────
 -- No foreign key to auth.users, so demo (seed) accounts can exist without
