@@ -182,6 +182,8 @@ begin
     return new;
   else
     update posts set like_count = greatest(like_count - 1, 0) where id = old.post_id;
+    -- Un-like takes the notification back, so like → unlike → like never stacks up.
+    delete from notifications where kind = 'like' and actor_id = old.user_id and post_id = old.post_id;
     return old;
   end if;
 end $$;
@@ -217,10 +219,15 @@ create trigger reports_count after insert on reports
 create or replace function on_follow() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
-  insert into notifications (user_id, actor_id, kind) values (new.followee_id, new.follower_id, 'follow');
-  return new;
+  if tg_op = 'INSERT' then
+    insert into notifications (user_id, actor_id, kind) values (new.followee_id, new.follower_id, 'follow');
+    return new;
+  end if;
+  -- Unfollow takes the "started following you" back.
+  delete from notifications where kind = 'follow' and user_id = old.followee_id and actor_id = old.follower_id;
+  return old;
 end $$;
-create trigger follows_notify after insert on follows
+create trigger follows_notify after insert or delete on follows
   for each row execute function on_follow();
 
 -- ── Onboarding + messaging functions ────────────────────────────────────

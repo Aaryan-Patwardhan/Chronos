@@ -16,8 +16,8 @@ An Instagram-style social app built for Code Hackathon 2026: photo posts, profil
 | Home feed ranked on the server (~0.7–1 s), "Why am I seeing this?", see fewer, report, feed preferences | Done, tested |
 | Explore (posts from people you don't follow, ranked), search people and #topics, topic pages, tappable #hashtags and @mentions | Done, tested |
 | Likes (double-tap, who liked), comments (delete own, authors moderate), private Saved tab, share | Done, tested |
-| Direct messages (real time, sent/seen ticks, offline outbox) | Built |
-| Notifications (likes, comments, follows) | Built |
+| Direct messages (real time, sent/seen ticks, offline outbox, "Not sent · Retry", cleared from the device on log out) | Done, tested |
+| Notifications (likes, comments, follows; live, with thumbnails and follow back; un-like / unfollow takes them back) | Done, tested |
 | Stories (24 h, unseen rings, hold to pause, replies by message, "Seen by", delete) | Done, tested |
 | Reels (upload up to 90 s, full-screen swipe, ranked on the server, likes/comments/saves, "Why am I seeing this?") | Done, tested |
 
@@ -43,7 +43,7 @@ Database (new, empty Supabase project only): run `supabase/schema.sql`, then `su
 | `pnpm dev` | Dev server with the `/api` functions |
 | `pnpm build` | Type-check and production build |
 | `pnpm test` | Ranking unit tests |
-| `node tests/m1-accounts.e2e.mjs` | End-to-end checks (also `m2-profiles`, `m3-posts`, `m4-feed`, `m5-stories`, `m6-reels`, `m7-explore`, `m8-engagement`, `m9-dms`) against your Supabase project — creates throwaway test accounts. `m4-feed` and `m7-explore` also need `pnpm dev` running (or `CHRONOS_API=<url>`) |
+| `node tests/m1-accounts.e2e.mjs` | End-to-end checks (also `m2-profiles`, `m3-posts`, `m4-feed`, `m5-stories`, `m6-reels`, `m7-explore`, `m8-engagement`, `m9-dms`, `m10-notifications`) against your Supabase project — creates throwaway test accounts. `m4-feed` and `m7-explore` also need `pnpm dev` running (or `CHRONOS_API=<url>`) |
 
 ## Project structure
 

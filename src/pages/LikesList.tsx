@@ -34,7 +34,7 @@ export default function LikesList() {
 
   return (
     <div>
-      <div className="sticky top-[57px] z-10 flex items-center gap-3 border-b bg-white px-4 py-3">
+      <div className="sticky top-[var(--chrome-top)] z-10 flex items-center gap-3 border-b bg-white px-4 py-3">
         <button onClick={() => navigate(-1)} aria-label="Back"><ArrowLeft size={22} /></button>
         <h1 className="font-semibold">Likes</h1>
       </div>

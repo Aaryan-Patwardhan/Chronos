@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { Edit, WifiOff } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { friendly } from '../lib/errors'
 import { timeAgo } from '../lib/time'
 import type { Profile } from '../lib/types'
 import { useAuth } from '../store/auth'
@@ -11,22 +12,25 @@ import { Status } from './Feed'
 
 export default function Messages() {
   const me = useAuth((s) => s.me)
-  const { threads, people, online } = useMessages()
+  const { threads, people, online, status, sync } = useMessages()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Profile[]>([])
   const [searching, setSearching] = useState(false)
+  const [searchError, setSearchError] = useState('')
 
   useEffect(() => {
     const q = query.trim().replace(/[%_,()@]/g, '')
-    if (!q) { setResults([]); return }
+    if (!q) { setResults([]); setSearchError(''); return }
     setSearching(true)
     const t = setTimeout(async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select('id, username, full_name, avatar_url, bio')
         .or(`username.ilike.%${q}%,full_name.ilike.%${q}%`)
+        .eq('onboarded', true)
         .neq('id', me?.id ?? '')
         .limit(8)
+      setSearchError(error ? friendly(error, "Search isn't working right now. Please try again.") : '')
       setResults((data ?? []) as Profile[])
       setSearching(false)
     }, 250)
@@ -68,7 +72,8 @@ export default function Messages() {
           {searching && (
             <p className="px-4 py-3 text-sm text-neutral-500">Searching…</p>
           )}
-          {!searching && results.length === 0 && (
+          {searchError && <p role="alert" className="px-4 py-3 text-sm text-rose-600">{searchError}</p>}
+          {!searching && !searchError && results.length === 0 && (
             <p className="px-4 py-3 text-sm text-neutral-500">No accounts found for "{query}".</p>
           )}
           {results.map((u) => (
@@ -91,7 +96,23 @@ export default function Messages() {
       {/* Thread list */}
       {!query.trim() && (
         <>
-          {!list.length && (
+          {status === 'error' && (
+            <p role="alert" className="mx-4 my-2 flex items-center justify-between gap-2 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {list.length ? "Couldn't refresh your messages." : "We couldn't load your messages."}
+              <button className="font-semibold underline" onClick={() => void sync()}>Try again</button>
+            </p>
+          )}
+          {!list.length && status === 'loading' && (
+            <ul aria-busy="true" aria-label="Loading messages">
+              {[0, 1, 2].map((i) => (
+                <li key={i} className="flex animate-pulse items-center gap-3 px-4 py-3">
+                  <div className="h-[50px] w-[50px] rounded-full bg-neutral-200" />
+                  <div className="flex-1 space-y-2"><div className="h-3 w-28 rounded bg-neutral-200" /><div className="h-3 w-44 rounded bg-neutral-200" /></div>
+                </li>
+              ))}
+            </ul>
+          )}
+          {!list.length && status === 'ready' && (
             <Status
               text="No messages yet."
               action={
@@ -124,7 +145,7 @@ export default function Messages() {
                     <span className="shrink-0 text-xs text-neutral-400">{timeAgo(last.created_at)}</span>
                   </div>
                   <p className={`truncate text-sm ${unread ? 'font-semibold text-neutral-900' : 'text-neutral-500'}`}>
-                    {isMe ? 'You: ' : ''}{last.body}
+                    {last.failed ? <span className="text-rose-600">Not sent · </span> : isMe ? 'You: ' : ''}{last.body}
                   </p>
                 </div>
                 {unread > 0 && (

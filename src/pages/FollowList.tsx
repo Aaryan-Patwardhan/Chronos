@@ -41,7 +41,7 @@ export default function FollowList({ kind }: { kind: 'followers' | 'following' }
   const title = kind === 'followers' ? 'Followers' : 'Following'
   return (
     <div>
-      <div className="sticky top-[57px] z-10 flex items-center gap-3 border-b bg-white px-4 py-3">
+      <div className="sticky top-[var(--chrome-top)] z-10 flex items-center gap-3 border-b bg-white px-4 py-3">
         <Link to={`/u/${username}`} aria-label="Back to profile"><ArrowLeft size={22} /></Link>
         <h1 className="font-semibold">{title} <span className="font-normal text-neutral-500">· @{username}</span></h1>
       </div>

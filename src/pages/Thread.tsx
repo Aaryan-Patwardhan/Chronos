@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Link, useParams } from 'react-router'
-import { ArrowLeft, Check, CheckCheck, Clock, WifiOff, Send } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Check, CheckCheck, Clock, WifiOff, Send } from 'lucide-react'
+import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/auth'
 import { useMessages } from '../store/messages'
 import Avatar from '../components/Avatar'
 import { timeAgo } from '../lib/time'
+import { Status } from './Feed'
 
 /** Group messages into runs from the same sender, then by date. */
 function groupByDate(msgs: ReturnType<typeof useMessages.getState>['threads'][string]) {
@@ -22,7 +24,8 @@ function groupByDate(msgs: ReturnType<typeof useMessages.getState>['threads'][st
 export default function Thread() {
   const { userId = '' } = useParams()
   const me = useAuth((s) => s.me)
-  const { threads, people, online, send, markSeen, loadPeople } = useMessages()
+  const { threads, people, online, send, retry, discard, markSeen, loadPeople } = useMessages()
+  const [missing, setMissing] = useState(false)
   const [text, setText] = useState('')
   const bottom = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -30,7 +33,14 @@ export default function Thread() {
   const partner = people[userId]
   const days = groupByDate(msgs)
 
-  useEffect(() => { void loadPeople([userId]) }, [userId, loadPeople])
+  // A wrong link (or your own id) can't become a conversation.
+  useEffect(() => {
+    setMissing(false)
+    if (!/^[0-9a-f-]{36}$/.test(userId) || userId === me?.id) return setMissing(true)
+    void loadPeople([userId])
+    void supabase.from('profiles').select('id').eq('id', userId).maybeSingle()
+      .then(({ data, error }) => { if (!error && !data) setMissing(true) })
+  }, [userId, me, loadPeople])
 
   // Mark messages seen whenever we open or receive new messages in this thread
   useEffect(() => {
@@ -59,10 +69,15 @@ export default function Thread() {
     }
   }, [handleSubmit])
 
+  if (missing) return (
+    <Status text={userId === me?.id ? "You can't message yourself." : "This conversation isn't available. The account may have been deleted."}
+      action={<Link to="/messages" className="btn-secondary">Back to messages</Link>} />
+  )
+
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] flex-col">
+    <div className="flex min-h-[calc(100dvh-var(--chrome-top)-var(--chrome-bottom))] flex-col">
       {/* Thread header */}
-      <div className="sticky top-[57px] z-10 flex items-center gap-3 border-b bg-white px-4 py-2">
+      <div className="sticky top-[var(--chrome-top)] z-10 flex items-center gap-3 border-b bg-white px-4 py-2">
         <Link to="/messages" aria-label="Back to messages" className="p-1 -ml-1 rounded-lg hover:bg-neutral-100">
           <ArrowLeft size={22} />
         </Link>
@@ -123,7 +138,8 @@ export default function Thread() {
                       className={`
                         rounded-2xl px-3.5 py-2 text-sm leading-relaxed
                         ${mine ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-900'}
-                        ${m.pending ? 'opacity-60' : ''}
+                        ${m.pending && !m.failed ? 'opacity-60' : ''}
+                        ${m.failed ? 'ring-2 ring-rose-400' : ''}
                         ${mine && prevSame ? 'rounded-tr-md' : ''}
                         ${mine && nextSame ? 'rounded-br-md' : ''}
                         ${!mine && prevSame ? 'rounded-tl-md' : ''}
@@ -133,8 +149,16 @@ export default function Thread() {
                       {m.body}
                     </div>
 
+                    {m.failed && (
+                      <div className="mt-1 flex flex-wrap items-center justify-end gap-x-2 text-xs text-rose-600" role="alert">
+                        <AlertCircle size={13} /> Not sent. {m.failed}
+                        <button className="font-semibold underline" onClick={() => retry(m.client_id)}>Retry</button>
+                        <button className="font-semibold text-neutral-500 underline" onClick={() => discard(m.client_id)}>Remove</button>
+                      </div>
+                    )}
+
                     {/* Tick + timestamp on last message in a run */}
-                    {!nextSame && (
+                    {!nextSame && !m.failed && (
                       <div className={`mt-0.5 flex items-center gap-1 text-xs text-neutral-400 ${mine ? 'flex-row-reverse' : ''}`}>
                         <span>{timeAgo(m.created_at)}</span>
                         {mine && (
@@ -164,7 +188,7 @@ export default function Thread() {
       {/* Compose bar */}
       <form
         onSubmit={handleSubmit}
-        className="sticky bottom-16 flex items-center gap-2 border-t bg-white px-3 py-2.5"
+        className="sticky bottom-[var(--chrome-bottom)] flex items-center gap-2 border-t bg-white px-3 py-2.5"
       >
         <input
           ref={inputRef}

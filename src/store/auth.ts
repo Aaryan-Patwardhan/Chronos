@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { Profile } from '../lib/types'
+import { clearMessageCache } from './messages'
 
 type AuthState = {
   session: Session | null
@@ -31,8 +32,9 @@ supabase.auth.getSession().then(async ({ data }) => {
   useAuth.setState({ ready: true })
 })
 
-supabase.auth.onAuthStateChange((_event, session) => {
+supabase.auth.onAuthStateChange((event, session) => {
   const prev = useAuth.getState().session?.user.id
+  if (event === 'SIGNED_OUT') clearMessageCache(prev)
   useAuth.setState({ session })
   if (session?.user.id !== prev) void useAuth.getState().loadProfile()
 })

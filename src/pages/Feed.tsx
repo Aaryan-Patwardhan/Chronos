@@ -37,7 +37,7 @@ export default function Feed() {
     <div>
       <StoriesBar onOpen={(list, start) => setViewer({ list, start })} />
       {viewer && <StoryViewer users={viewer.list} start={viewer.start} onClose={() => { setViewer(null); if (me) void loadStories(me.id) }} />}
-      {refreshing && <p className="sticky top-[57px] z-10 bg-white/95 py-2 text-center text-xs text-neutral-500" role="status">Refreshing your feed…</p>}
+      {refreshing && <p className="sticky top-[var(--chrome-top)] z-10 bg-white/95 py-2 text-center text-xs text-neutral-500" role="status">Refreshing your feed…</p>}
       {error && posts && <p role="alert" className="mx-4 my-2 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
       {!posts ? (
         <FeedSkeleton />

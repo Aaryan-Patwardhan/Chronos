@@ -33,7 +33,7 @@ export default function Layout() {
         <div className="flex items-center gap-3">
           <NavLink to="/notifications" className="relative p-1" aria-label="Notifications">
             <Bell size={22} />
-            {unread > 0 && <span className="absolute -right-1 -top-1 rounded-full bg-rose-500 px-1.5 text-[10px] font-semibold text-white">{unread}</span>}
+            {unread > 0 && <span className="absolute -right-1 -top-1 rounded-full bg-rose-500 px-1.5 text-[10px] font-semibold text-white">{unread > 99 ? '99+' : unread}</span>}
           </NavLink>
           <NavLink to="/settings" className="p-1" aria-label="Settings"><Settings size={22} /></NavLink>
         </div>
@@ -48,7 +48,7 @@ export default function Layout() {
         <NavLink to="/new" className={tab}><SquarePlus size={22} />Post</NavLink>
         <NavLink to="/messages" className={tab}>
           <MessageCircle size={22} />Messages
-          {unreadDms > 0 && <span className="absolute right-1 top-1 rounded-full bg-rose-500 px-1.5 text-[10px] font-semibold text-white">{unreadDms}</span>}
+          {unreadDms > 0 && <span className="absolute right-1 top-1 rounded-full bg-rose-500 px-1.5 text-[10px] font-semibold text-white">{unreadDms > 99 ? '99+' : unreadDms}</span>}
         </NavLink>
         <NavLink to={me ? `/u/${me.username}` : '/'} className={tab}><User size={22} />Profile</NavLink>
       </nav>

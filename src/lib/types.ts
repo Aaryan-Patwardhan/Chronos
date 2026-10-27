@@ -30,6 +30,8 @@ export type Message = {
   seen_at: string | null
   /** Local only: 'sending' until the server confirms the row. */
   pending?: boolean
+  /** Local only: the server refused it — plain-English reason; tap to retry. */
+  failed?: string
 }
 
 export type Notification = {
@@ -39,6 +41,7 @@ export type Notification = {
   read: boolean
   created_at: string
   actor: Profile
+  post: { type: 'post' | 'story' | 'reel'; image_url: string } | null
 }
 
 export { type Trace, type Weights, DEFAULT_WEIGHTS } from '../../api/_lib/rank'

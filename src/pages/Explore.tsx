@@ -91,7 +91,7 @@ export default function Explore() {
   const showRecent = focused && !term && recent.length > 0
   return (
     <div>
-      <div className="sticky top-[57px] z-10 space-y-2 bg-white p-3">
+      <div className="sticky top-[var(--chrome-top)] z-10 space-y-2 bg-white p-3">
         <div className="flex items-center gap-2">
           <label className="flex flex-1 items-center gap-2 rounded-lg bg-neutral-100 px-3 py-2">
             <Search size={18} className="text-neutral-500" />
