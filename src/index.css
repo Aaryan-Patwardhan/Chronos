@@ -43,3 +43,11 @@ body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
 /* Horizontal chip rows: scroll by swipe, no visible scrollbar */
 .no-scrollbar, .scrollbar-hide { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar, .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* Brand gradient (from the logo: cyan → violet) */
+.brand-text {
+  background: linear-gradient(90deg, #2fc9e0 0%, #5b8def 50%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}

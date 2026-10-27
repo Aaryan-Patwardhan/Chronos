@@ -19,7 +19,8 @@ export default function Welcome() {
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-between px-6 py-12">
       <div className="pt-16 text-center">
-        <h1 className="text-5xl font-bold tracking-tight">Chronos</h1>
+        <img src="/brand/logo-400.jpg" alt="" width={112} height={112} className="mx-auto mb-5 h-28 w-28 rounded-3xl shadow-lg shadow-violet-500/20" />
+        <h1 className="brand-text text-5xl font-bold tracking-tight">Chronos</h1>
         <p className="mt-3 text-lg text-neutral-600">Connect. Create. Discover.</p>
         <ul className="mx-auto mt-10 max-w-xs space-y-3 text-left text-sm text-neutral-700">
           <li>📸 Share photos with the people you follow</li>

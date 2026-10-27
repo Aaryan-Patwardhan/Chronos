@@ -20,7 +20,14 @@ import TagPage from './pages/TagPage'
 
 export default function App() {
   const { session, me, ready, settingUp } = useAuth()
-  if (!ready || settingUp) return <div className="grid min-h-screen place-items-center text-neutral-500">{settingUp ? 'Setting up your feed…' : 'Loading Chronos…'}</div>
+  if (!ready || settingUp) return (
+    <div className="grid min-h-screen place-items-center">
+      <div className="flex flex-col items-center gap-3 text-sm text-neutral-500">
+        <img src="/brand/icon-192.png" alt="" width={72} height={72} className="h-18 w-18 animate-pulse rounded-2xl" />
+        {settingUp ? 'Setting up your feed…' : 'Loading Chronos…'}
+      </div>
+    </div>
+  )
   if (!session) return <Welcome />
   if (!me) return <div className="grid min-h-screen place-items-center text-neutral-500">Loading your profile…</div>
   if (!me.onboarded) return <Onboarding />

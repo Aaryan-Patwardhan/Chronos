@@ -25,7 +25,8 @@ export default function Layout() {
   return (
     <div className="mx-auto flex min-h-screen max-w-xl flex-col bg-white shadow-sm">
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-neutral-200 bg-white/95 px-4 py-3 backdrop-blur">
-        <Link to="/" className="leading-tight">
+        <Link to="/" className="flex items-center gap-2 leading-tight" aria-label="Chronos home">
+          <img src="/brand/icon-64.png" alt="" width={28} height={28} className="h-7 w-7 rounded-lg" />
           <span className="text-xl font-bold tracking-tight">Chronos</span>
           <span className="ml-2 hidden text-xs text-neutral-500 sm:inline">Connect. Create. Discover.</span>
         </Link>

@@ -19,3 +19,10 @@ PROJECT_STATUS.txt
 .idea
 .vscode
 .claude
+
+# team files kept in the project folder — never commit
+*.pptx
+*.key
+WhatsApp Image*
+new_logo_final.jpeg
+scripts/live-audit.mjs
