@@ -69,15 +69,26 @@ export const useMessages = create<State>((set, get) => {
         await get().flush()
       })()
 
-      const onChange = (payload: { new: Message }) => {
+      const onNewMsg = (payload: { new: Message }) => {
         set({ threads: merge(get().threads, me, [{ ...payload.new, pending: false }]) })
         void get().loadPeople([partnerOf(payload.new, me)])
         persist()
       }
+
+      // UPDATE fires when the partner marks our outgoing message as seen,
+      // or when mark_seen() resolves a batch. Both paths handled here.
+      const onUpdate = (payload: { new: Message }) => {
+        set({ threads: merge(get().threads, me, [{ ...payload.new, pending: false }]) })
+        persist()
+      }
+
       const channel = supabase.channel(`dm:${me}`)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `recipient_id=eq.${me}` }, onChange)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `sender_id=eq.${me}` }, onChange)
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: `sender_id=eq.${me}` }, onChange)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `recipient_id=eq.${me}` }, onNewMsg)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `sender_id=eq.${me}` }, onNewMsg)
+        // Receive seen_at updates on messages we sent (partner marked them seen)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: `sender_id=eq.${me}` }, onUpdate)
+        // Receive seen_at updates on messages we received (our own mark_seen RPC confirmation)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: `recipient_id=eq.${me}` }, onUpdate)
         .subscribe()
 
       const goOnline = () => { set({ online: true }); void get().flush() }
@@ -106,6 +117,7 @@ export const useMessages = create<State>((set, get) => {
 
     flush: async () => {
       const me = get().me
+      // Use live navigator.onLine rather than stored state (avoids stale closures)
       if (!me || !navigator.onLine) return
       const pending = Object.values(get().threads).flat().filter((m) => m.pending && m.sender_id === me)
       for (const m of pending) {
@@ -113,6 +125,7 @@ export const useMessages = create<State>((set, get) => {
           client_id: m.client_id, sender_id: m.sender_id, recipient_id: m.recipient_id, body: m.body,
         })
         if (!error || error.code === '23505') {
+          // '23505' = unique_violation: already inserted by a previous retry, treat as success
           set({ threads: merge(get().threads, me, [{ ...m, pending: false }]) })
         } else {
           break // still offline or server unreachable; retry on the next 'online' event
@@ -126,14 +139,16 @@ export const useMessages = create<State>((set, get) => {
       if (!me) return
       const unseen = (get().threads[partner] ?? []).filter((m) => m.recipient_id === me && !m.seen_at)
       if (!unseen.length) return
+      // Optimistic: stamp locally so the UI updates immediately
       const now = new Date().toISOString()
       set({ threads: merge(get().threads, me, unseen.map((m) => ({ ...m, seen_at: now }))) })
       persist()
+      // Then persist via the DB function (only recipient can update seen_at — RLS)
       await supabase.rpc('mark_seen', { partner })
     },
 
     loadPeople: async (ids) => {
-      const missing = ids.filter((id) => !get().people[id])
+      const missing = ids.filter((id) => !get().people[id] && id !== get().me)
       if (!missing.length) return
       const { data } = await supabase.from('profiles').select('id, username, full_name, avatar_url, bio').in('id', missing)
       if (data) set({ people: { ...get().people, ...Object.fromEntries(data.map((p) => [p.id, p as Profile])) } })
