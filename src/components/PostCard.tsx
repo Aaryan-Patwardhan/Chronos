@@ -4,7 +4,7 @@ import { Bookmark, EyeOff, Flag, Heart, Info, MessageCircle, Ellipsis, Pencil, S
 import { supabase } from '../lib/supabase'
 import { timeAgo } from '../lib/time'
 import { friendly } from '../lib/errors'
-import { storagePath } from '../lib/image'
+import { displayAspect, storagePath } from '../lib/image'
 import { useAuth } from '../store/auth'
 import Avatar from './Avatar'
 import WhyModal from './WhyModal'
@@ -20,6 +20,7 @@ export type CardPost = {
   like_count: number
   comment_count: number
   created_at: string
+  aspect?: number | null
   author: { username: string; avatar_url: string; full_name: string } | null
   liked?: boolean
   saved?: boolean
@@ -181,7 +182,7 @@ export default function PostCard({ post, surface, onHide, onDeleted }: Props) {
       </div>
 
       <div className="relative select-none" onPointerUp={onPhotoTap}>
-        <PostImage src={post.image_url} alt={caption || `Post by ${name}`} className="aspect-square w-full" />
+        <PostImage src={post.image_url} alt={caption || `Post by ${name}`} className="w-full" style={{ aspectRatio: displayAspect(post.aspect) }} />
         {burst && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
             <Heart size={96} className="heart-burst fill-white text-white drop-shadow-lg" />

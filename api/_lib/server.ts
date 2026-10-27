@@ -111,7 +111,7 @@ export async function loadSignals(sb: SupabaseClient, me: string): Promise<{ sig
 }
 
 // Authors come embedded in the same query (no separate profiles lookup).
-const POST_COLUMNS = 'id, author_id, image_url, caption, tags, like_count, comment_count, report_count, created_at, ' +
+const POST_COLUMNS = 'id, author_id, image_url, caption, tags, like_count, comment_count, report_count, created_at, aspect, ' +
   'author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url)'
 type PostRow = Omit<Candidate, 'sources'> & { image_url: string; caption: string; author: unknown }
 type Result = { data: unknown; error: { message: string; code?: string } | null }

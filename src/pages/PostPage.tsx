@@ -34,7 +34,7 @@ export default function PostPage() {
     setPost(undefined)
     void (async () => {
       const { data } = await supabase.from('posts')
-        .select('id, author_id, image_url, caption, tags, like_count, comment_count, created_at, author:profiles!posts_author_id_fkey(username, avatar_url, full_name)')
+        .select('id, author_id, image_url, caption, tags, like_count, comment_count, created_at, aspect, author:profiles!posts_author_id_fkey(username, avatar_url, full_name)')
         .eq('id', id).maybeSingle()
       if (cancelled) return
       if (!data) return setPost(null)

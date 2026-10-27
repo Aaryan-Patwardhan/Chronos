@@ -79,7 +79,7 @@ const rmOwn = await A.c.storage.from('media').remove([path])
 check('delete own photo file', (rmOwn.data ?? []).length === 1, rmOwn.error?.message)
 
 // Demo photos are served from our own Storage
-const sample = await A.c.from('posts').select('image_url').like('image_url', '%/demo/%').limit(200)
+const sample = await A.c.from('posts').select('image_url').eq('type', 'post').like('image_url', '%/demo/%').limit(300)
 const urls = [...new Set(sample.data.map((r) => r.image_url))]
 const statuses = await Promise.all(urls.slice(0, 15).map((u) => fetch(u, { method: 'HEAD' }).then((r) => r.status)))
 check('demo photos load from our own storage (15 sampled)', statuses.every((st) => st === 200), statuses.join(','))

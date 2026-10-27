@@ -5,7 +5,7 @@ import { ImagePlus, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/auth'
 import { friendly } from '../lib/errors'
-import { ImageError, MAX_INPUT_MB, prepareImage } from '../lib/image'
+import { ImageError, checkPhotoFile, displayAspect, prepareImage } from '../lib/image'
 import { INTERESTS } from '../lib/interests'
 
 const CAPTION_MAX = 2200
@@ -19,6 +19,7 @@ export default function NewPost() {
   const [caption, setCaption] = useState('')
   const [topics, setTopics] = useState<string[]>([])
   const [error, setError] = useState('')
+  const [shape, setShape] = useState(1)
   const [step, setStep] = useState<'' | 'preparing' | 'uploading' | 'saving'>('')
 
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview) }, [preview])
@@ -26,8 +27,8 @@ export default function NewPost() {
   function choose(f: File | undefined) {
     setError('')
     if (!f) return
-    if (!f.type.startsWith('image/')) return setError('Please choose a photo (JPG, PNG, WebP or GIF).')
-    if (f.size > MAX_INPUT_MB * 1024 * 1024) return setError(`That photo is larger than ${MAX_INPUT_MB} MB. Please choose a smaller one.`)
+    const problem = checkPhotoFile(f)
+    if (problem) return setError(problem)
     setFile(f)
     setPreview(URL.createObjectURL(f))
   }
@@ -46,7 +47,7 @@ export default function NewPost() {
     setError('')
     try {
       setStep('preparing')
-      const { blob, type, ext } = await prepareImage(file)
+      const { blob, type, ext, aspect } = await prepareImage(file)
       setStep('uploading')
       const path = `${me.id}/${crypto.randomUUID()}.${ext}`
       const up = await supabase.storage.from('media').upload(path, blob, { contentType: type, cacheControl: '31536000' })
@@ -54,7 +55,7 @@ export default function NewPost() {
       const url = supabase.storage.from('media').getPublicUrl(path).data.publicUrl
       setStep('saving')
       const { data, error } = await supabase.from('posts')
-        .insert({ author_id: me.id, image_url: url, caption: caption.trim().slice(0, CAPTION_MAX), tags: allTags })
+        .insert({ author_id: me.id, image_url: url, caption: caption.trim().slice(0, CAPTION_MAX), tags: allTags, aspect })
         .select('id').single()
       if (error) {
         await supabase.storage.from('media').remove([path])
@@ -74,9 +75,11 @@ export default function NewPost() {
       <h1 className="text-lg font-semibold">New post</h1>
 
       <div className="relative">
-        <label className={`flex aspect-square cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed bg-neutral-50 text-sm text-neutral-500 ${preview ? 'border-transparent' : 'border-neutral-300 hover:border-neutral-500'}`}>
+        <label style={{ aspectRatio: preview ? displayAspect(shape) : 1 }} className={`flex cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed bg-neutral-50 text-sm text-neutral-500 ${preview ? 'border-transparent' : 'border-neutral-300 hover:border-neutral-500'}`}>
           {preview
-            ? <img src={preview} alt="Selected photo preview" className="h-full w-full object-cover" />
+            ? <img src={preview} alt="Selected photo preview" className="h-full w-full object-cover"
+                onLoad={(e) => setShape(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight || 1)}
+                onError={() => { setError("We can't open that photo here. Please choose a JPG, PNG or WebP."); setFile(null); setPreview('') }} />
             : <><ImagePlus size={44} /><span className="mt-2 font-medium">Choose a photo</span><span className="text-xs">JPG, PNG, WebP or GIF</span></>}
           <input type="file" accept="image/*" className="sr-only" disabled={busy} onChange={(e) => { choose(e.target.files?.[0]); e.target.value = '' }} />
         </label>

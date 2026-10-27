@@ -5,11 +5,11 @@ import { ArrowLeft, Check, Loader2, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { friendly } from '../lib/errors'
 import { useAuth } from '../store/auth'
+import { ImageError, checkPhotoFile, prepareImage, storagePath } from '../lib/image'
 import Avatar from '../components/Avatar'
 
 const BIO_MAX = 150
 const NAME_MAX = 50
-const PHOTO_MAX_MB = 2
 type Availability = 'same' | 'checking' | 'ok' | 'taken' | 'invalid'
 
 export default function EditProfile() {
@@ -42,8 +42,8 @@ export default function EditProfile() {
   function choosePhoto(f: File | undefined) {
     setError('')
     if (!f) return
-    if (!f.type.startsWith('image/')) return setError('Please choose a photo (JPG, PNG or WebP).')
-    if (f.size > PHOTO_MAX_MB * 1024 * 1024) return setError(`Please choose a photo smaller than ${PHOTO_MAX_MB} MB.`)
+    const problem = checkPhotoFile(f)
+    if (problem) return setError(problem)
     setPhoto(f)
     setPreview(URL.createObjectURL(f))
   }
@@ -56,9 +56,11 @@ export default function EditProfile() {
     try {
       let avatar_url = me.avatar_url
       if (photo) {
-        const ext = (photo.name.split('.').pop() ?? 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
+        // Phone photos are often 3–8 MB: shrink to 640 px first (a profile
+        // photo is never shown larger), so any normal photo works.
+        const { blob, type, ext } = await prepareImage(photo, { maxSide: 640 })
         const path = `${me.id}/avatar-${crypto.randomUUID()}.${ext}`
-        const up = await supabase.storage.from('media').upload(path, photo, { contentType: photo.type })
+        const up = await supabase.storage.from('media').upload(path, blob, { contentType: type, cacheControl: '31536000' })
         if (up.error) throw up.error
         avatar_url = supabase.storage.from('media').getPublicUrl(path).data.publicUrl
       }
@@ -67,10 +69,13 @@ export default function EditProfile() {
         .update({ full_name: cleanName, username, bio: bio.trim().slice(0, BIO_MAX), avatar_url })
         .eq('id', me.id)
       if (error) throw error
+      // Remove the previous photo file (only if it's one we uploaded).
+      const oldPath = photo ? storagePath(me.avatar_url) : null
+      if (oldPath?.startsWith(`${me.id}/avatar-`)) void supabase.storage.from('media').remove([oldPath])
       await useAuth.getState().loadProfile()
       navigate(`/u/${username}`, { replace: true })
     } catch (err) {
-      setError(friendly(err, "We couldn't save your profile. Please try again."))
+      setError(err instanceof ImageError ? err.message : friendly(err, "We couldn't save your profile. Please try again."))
     } finally {
       setBusy(false)
     }
@@ -86,7 +91,8 @@ export default function EditProfile() {
 
       <div className="flex flex-col items-center gap-2">
         {preview
-          ? <img src={preview} alt="New profile photo preview" className="h-24 w-24 rounded-full object-cover" />
+          ? <img src={preview} alt="New profile photo preview" className="h-24 w-24 rounded-full object-cover"
+              onError={() => { setError("We can't open that photo here. Please choose a JPG, PNG or WebP."); setPhoto(null); setPreview('') }} />
           : <Avatar src={me.avatar_url} name={me.username} size={96} />}
         <label className="cursor-pointer text-sm font-semibold text-sky-600 hover:underline">
           Change photo
