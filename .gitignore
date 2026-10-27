@@ -1,0 +1,21 @@
+# dependencies and builds
+node_modules
+dist
+coverage
+*.tsbuildinfo
+
+# secrets and local settings — never commit
+.env
+.env.*
+!.env.example
+.vercel
+
+# private working notes
+PROJECT_STATUS.txt
+
+# editor / OS / logs
+.DS_Store
+*.log
+.idea
+.vscode
+.claude
