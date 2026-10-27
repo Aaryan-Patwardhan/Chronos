@@ -1,14 +1,11 @@
 export type Story = {
   id: string
   user_id: string
-  username: string
-  avatar_url: string
-  full_name: string
   media_url: string
-  media_type: 'image' | 'video'
+  caption: string
   created_at: string
-  viewed: boolean
   expires_at: string
+  viewed: boolean
 }
 
 export type StoryUser = {
@@ -16,7 +13,7 @@ export type StoryUser = {
   username: string
   avatar_url: string
   full_name: string
-  hasStory: boolean
+  /** True when every story of this user has been seen. */
   viewed: boolean
   stories: Story[]
 }

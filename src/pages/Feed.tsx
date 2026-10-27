@@ -7,87 +7,36 @@ import PostCard, { type CardPost } from '../components/PostCard'
 import StoriesBar from '../components/StoriesBar'
 import StoryViewer from '../components/StoryViewer'
 import type { StoryUser } from '../types/stories'
-import { MOCK_STORY_USERS } from '../data/mockStories'
+import { useAuth } from '../store/auth'
+import { useStories } from '../store/stories'
 
 export default function Feed() {
   const [posts, setPosts] = useState<CardPost[] | null>(null)
   const [error, setError] = useState('')
   const [refreshing, setRefreshing] = useState(false)
-  const [storyUsers] = useState<StoryUser[]>(MOCK_STORY_USERS)
-  const [activeStoryUser, setActiveStoryUser] = useState<StoryUser | null>(null)
-  const [activeStoryIndex, setActiveStoryIndex] = useState(0)
-
+  const me = useAuth((s) => s.me)
+  const loadStories = useStories((s) => s.load)
+  const [viewer, setViewer] = useState<{ list: StoryUser[]; start: number } | null>(null)
+  useEffect(() => { if (me) void loadStories(me.id) }, [me, loadStories])
   // First load shows skeletons; a refresh keeps the current posts on screen
-  // until the new ranking arrives, then scrolls back to the top.
+  // until the new ranking arrives (stories reload too), then scrolls to top.
   const load = useCallback((refresh = false) => {
     setError('')
-    if (refresh) setRefreshing(true)
+    if (refresh) { setRefreshing(true); if (me) void loadStories(me.id) }
     api<{ posts: CardPost[] }>('/api/feed?surface=feed')
       .then((r) => { setPosts(r.posts); if (refresh) window.scrollTo({ top: 0, behavior: 'smooth' }) })
       .catch((e) => setError(friendly(e, "We couldn't load your feed. Please try again.")))
       .finally(() => setRefreshing(false))
-  }, [])
+  }, [me, loadStories])
   useEffect(() => load(), [load])
   const remove = useCallback((id: string) => setPosts((list) => list?.filter((x) => x.id !== id) ?? null), [])
-
-  const handleOpenStory = useCallback((user: StoryUser, storyIndex = 0) => {
-    if (!user.hasStory) return
-    setActiveStoryUser(user)
-    setActiveStoryIndex(storyIndex)
-  }, [])
-
-  const handleCloseStory = useCallback(() => {
-    setActiveStoryUser(null)
-    setActiveStoryIndex(0)
-  }, [])
-
-  const handleNextUser = useCallback(() => {
-    const currentIndex = storyUsers.findIndex(u => u.id === activeStoryUser?.id)
-    if (currentIndex < storyUsers.length - 1) {
-      const nextUser = storyUsers[currentIndex + 1]
-      if (nextUser.hasStory) {
-        setActiveStoryUser(nextUser)
-        setActiveStoryIndex(0)
-      } else {
-        handleCloseStory()
-      }
-    } else {
-      handleCloseStory()
-    }
-  }, [storyUsers, activeStoryUser, handleCloseStory])
-
-  const handlePrevUser = useCallback(() => {
-    const currentIndex = storyUsers.findIndex(u => u.id === activeStoryUser?.id)
-    if (currentIndex > 0) {
-      const prevUser = storyUsers[currentIndex - 1]
-      if (prevUser.hasStory) {
-        setActiveStoryUser(prevUser)
-        setActiveStoryIndex(prevUser.stories.length - 1)
-      } else {
-        handleCloseStory()
-      }
-    } else {
-      handleCloseStory()
-    }
-  }, [storyUsers, activeStoryUser, handleCloseStory])
 
   if (error && !posts) return <Status text={error} action={<button className="btn-secondary" onClick={() => load()}>Try again</button>} />
 
   return (
     <div>
-      <StoriesBar
-        storyUsers={storyUsers}
-        onOpenStory={handleOpenStory}
-      />
-      {activeStoryUser && (
-        <StoryViewer
-          user={activeStoryUser}
-          initialStoryIndex={activeStoryIndex}
-          onClose={handleCloseStory}
-          onNextUser={handleNextUser}
-          onPrevUser={handlePrevUser}
-        />
-      )}
+      <StoriesBar onOpen={(list, start) => setViewer({ list, start })} />
+      {viewer && <StoryViewer users={viewer.list} start={viewer.start} onClose={() => { setViewer(null); if (me) void loadStories(me.id) }} />}
       {refreshing && <p className="sticky top-[57px] z-10 bg-white/95 py-2 text-center text-xs text-neutral-500" role="status">Refreshing your feed…</p>}
       {error && posts && <p role="alert" className="mx-4 my-2 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
       {!posts ? (

@@ -406,3 +406,43 @@ language sql stable security invoker set search_path = public as $$
 $$;
 revoke execute on function search_tags(text) from public, anon;
 grant execute on function search_tags(text) to authenticated;
+
+-- ── Module 5: Stories (posts with type = 'story') ───────────────────────
+-- Every story expires 24 h after posting, whatever the app sends; posts
+-- never expire. Demo stories: supabase/demo-stories.sql (re-run before demos).
+create or replace function set_story_expiry() returns trigger
+language plpgsql security invoker set search_path = public as $$
+begin
+  if new.type = 'story' then
+    new.expires_at := now() + interval '24 hours';
+    new.tags := '{}';
+  else
+    new.expires_at := null;
+  end if;
+  return new;
+end $$;
+create trigger posts_story_expiry before insert on posts for each row execute function set_story_expiry();
+revoke execute on function set_story_expiry() from public, anon, authenticated;
+
+-- Who has seen which story (unseen ring + "Seen by").
+create table story_views (
+  story_id  uuid not null references posts(id) on delete cascade,
+  viewer_id uuid not null references profiles(id) on delete cascade,
+  viewed_at timestamptz not null default now(),
+  primary key (story_id, viewer_id)
+);
+create index story_views_viewer_idx on story_views (viewer_id);
+alter table story_views enable row level security;
+create policy "record own view of a live story" on story_views for insert to authenticated
+  with check (viewer_id = (select auth.uid())
+    and exists (select 1 from posts p where p.id = story_id and p.type = 'story'));
+create policy "own views and views of my stories" on story_views for select to authenticated
+  using (viewer_id = (select auth.uid())
+    or exists (select 1 from posts p where p.id = story_id and p.author_id = (select auth.uid())));
+grant select, insert on story_views to authenticated;
+create index posts_story_live_idx on posts (author_id, expires_at) where type = 'story';
+
+-- Photo shape (width / height) saved at upload; the feed shows posts at
+-- their real shape (clamped 4:5 … 1.91:1) instead of cropping to a square.
+alter table posts add column aspect real;
+alter table posts add constraint posts_aspect_range check (aspect is null or aspect between 0.3 and 3.5);

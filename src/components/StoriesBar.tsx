@@ -1,80 +1,59 @@
-import { useState } from 'react'
-import { Link } from 'react-router'
-import { Plus, MoreHorizontal } from 'lucide-react'
+// Row of story rings at the top of the feed: "Your story" first, then the
+// people you follow — unseen (coloured ring) before seen (grey ring).
+import { useNavigate } from 'react-router'
+import { Plus } from 'lucide-react'
 import Avatar from './Avatar'
 import { useAuth } from '../store/auth'
+import { useStories } from '../store/stories'
 import type { StoryUser } from '../types/stories'
 
-interface StoriesBarProps {
-  storyUsers: StoryUser[]
-  onOpenStory: (user: StoryUser, storyIndex?: number) => void
-}
-
-export default function StoriesBar({ storyUsers, onOpenStory }: StoriesBarProps) {
+export default function StoriesBar({ onOpen }: { onOpen: (list: StoryUser[], index: number) => void }) {
   const me = useAuth((s) => s.me)
-  // Exclude current user from the peer stories list to prevent duplicate avatar
-  const [users] = useState<StoryUser[]>(() => {
-    return storyUsers.filter((u) => u.id !== me?.id && u.username !== me?.username)
-  })
+  const { users, mine, loaded } = useStories()
+  const navigate = useNavigate()
+  if (!me) return null
+  const list = mine ? [mine, ...users] : users
 
   return (
     <div className="border-b border-neutral-200 bg-white">
-      <div className="max-w-screen-md mx-auto px-4 py-3 overflow-x-auto no-scrollbar">
-        <div className="flex gap-3 min-w-max">
-          {me && (
-            <Link
-              to="/new"
-              className="flex flex-col items-center gap-1.5 w-18 shrink-0 group cursor-pointer"
-              aria-label="Add to your story"
-            >
-              <div className="relative w-16 h-16 flex items-center justify-center">
-                <div className="absolute inset-0 rounded-full border-2 border-neutral-200" />
-                <Avatar src={me.avatar_url} name={me.username} size={54} className="rounded-full" />
-                <div className="absolute bottom-0 right-0 z-20 w-5 h-5 rounded-full bg-sky-500 flex items-center justify-center border-2 border-white shadow-sm">
-                  <Plus size={14} className="text-white stroke-[3]" />
-                </div>
-              </div>
-              <span className="text-xs font-medium text-neutral-700 truncate w-full text-center">Your Story</span>
-            </Link>
-          )}
-          {users.map((user) => (
-            <StoryRing
-              key={user.id}
-              user={user}
-              onClick={() => onOpenStory(user)}
-            />
+      <div className="no-scrollbar overflow-x-auto px-3 py-3">
+        <ul className="flex min-w-max gap-3" aria-label="Stories">
+          <li className="relative w-[72px] shrink-0">
+            <button onClick={() => (mine ? onOpen(list, 0) : navigate('/stories/new'))} className="flex w-full flex-col items-center gap-1"
+              aria-label={mine ? 'View your story' : 'Add to your story'}>
+              <Ring state={mine ? 'seen' : 'none'}><Avatar src={me.avatar_url} name={me.username} size={58} /></Ring>
+              <span className="w-full truncate text-center text-xs text-neutral-700">Your story</span>
+            </button>
+            <button onClick={() => navigate('/stories/new')} aria-label="Add a new story"
+              className="absolute right-1 top-11 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-sky-500 text-white">
+              <Plus size={14} strokeWidth={3} />
+            </button>
+          </li>
+          {!loaded && Array.from({ length: 5 }, (_, i) => (
+            <li key={i} className="flex w-[72px] shrink-0 animate-pulse flex-col items-center gap-1">
+              <div className="h-16 w-16 rounded-full bg-neutral-200" /><div className="h-2.5 w-12 rounded bg-neutral-200" />
+            </li>
           ))}
-        </div>
+          {users.map((u, i) => (
+            <li key={u.id} className="w-[72px] shrink-0">
+              <button onClick={() => onOpen(list, mine ? i + 1 : i)} className="flex w-full flex-col items-center gap-1"
+                aria-label={`${u.username}'s story${u.viewed ? '' : ', new'}`}>
+                <Ring state={u.viewed ? 'seen' : 'new'}><Avatar src={u.avatar_url} name={u.username} size={58} /></Ring>
+                <span className={`w-full truncate text-center text-xs ${u.viewed ? 'text-neutral-500' : 'text-neutral-800'}`}>{u.username}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   )
 }
 
-function StoryRing({ user, onClick }: { user: StoryUser; onClick: () => void }) {
-  const hasUnviewed = user.hasStory && !user.viewed
-  const ringColors = hasUnviewed
-    ? 'from-rose-500 via-orange-500 to-yellow-500'
-    : 'from-neutral-300 to-neutral-400'
-
+function Ring({ state, children }: { state: 'new' | 'seen' | 'none'; children: React.ReactNode }) {
+  const ring = state === 'new' ? 'bg-gradient-to-tr from-amber-400 via-rose-500 to-violet-600' : state === 'seen' ? 'bg-neutral-300' : 'bg-transparent'
   return (
-    <button
-      onClick={onClick}
-      disabled={!user.hasStory}
-      className="flex flex-col items-center gap-1.5 w-18 shrink-0 cursor-pointer disabled:opacity-80"
-      aria-label={user.hasStory ? `View ${user.full_name}'s story` : user.full_name}
-    >
-      <div className="relative w-16 h-16 flex items-center justify-center">
-        <div className={`absolute inset-0 rounded-full p-[2.5px] bg-gradient-to-br ${ringColors}`}>
-          <div className="w-full h-full rounded-full bg-white" />
-        </div>
-        <Avatar src={user.avatar_url} name={user.username} size={54} className="relative z-10 rounded-full" />
-        {user.hasStory && user.viewed && (
-          <div className="absolute bottom-0 right-0 z-20 w-5 h-5 rounded-full bg-white border-2 border-neutral-200 flex items-center justify-center shadow-xs">
-            <MoreHorizontal size={12} className="text-neutral-500" />
-          </div>
-        )}
-      </div>
-      <span className="text-xs font-medium text-neutral-700 truncate w-full text-center">{user.username}</span>
-    </button>
+    <span className={`flex h-16 w-16 items-center justify-center rounded-full p-[2.5px] ${ring}`}>
+      <span className="flex h-full w-full items-center justify-center rounded-full bg-white p-[2px]">{children}</span>
+    </span>
   )
 }

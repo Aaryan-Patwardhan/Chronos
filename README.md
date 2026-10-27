@@ -18,7 +18,8 @@ An Instagram-style social app built for Code Hackathon 2026: photo posts, profil
 | Likes (double-tap, who liked), comments (delete own, authors moderate), private Saved tab, share | Done, tested |
 | Direct messages (real time, sent/seen ticks, offline outbox) | Built |
 | Notifications (likes, comments, follows) | Built |
-| Stories and Reels | In progress (mock data) |
+| Stories (24 h, unseen rings, hold to pause, replies by message, "Seen by", delete) | Done, tested |
+| Reels | Not built yet (mock data; sample videos no longer load) |
 
 ## Tech stack
 
@@ -42,7 +43,7 @@ Database (new, empty Supabase project only): run `supabase/schema.sql`, then `su
 | `pnpm dev` | Dev server with the `/api` functions |
 | `pnpm build` | Type-check and production build |
 | `pnpm test` | Ranking unit tests |
-| `node tests/m1-accounts.e2e.mjs` | End-to-end checks (also `m2-profiles`, `m3-posts`, `m4-feed`, `m7-explore`, `m8-engagement`) against your Supabase project — creates throwaway test accounts. `m4-feed` and `m7-explore` also need `pnpm dev` running (or `CHRONOS_API=<url>`) |
+| `node tests/m1-accounts.e2e.mjs` | End-to-end checks (also `m2-profiles`, `m3-posts`, `m4-feed`, `m5-stories`, `m7-explore`, `m8-engagement`, `m9-dms`) against your Supabase project — creates throwaway test accounts. `m4-feed` and `m7-explore` also need `pnpm dev` running (or `CHRONOS_API=<url>`) |
 
 ## Project structure
 
