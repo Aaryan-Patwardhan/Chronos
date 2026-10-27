@@ -13,17 +13,33 @@ export class HttpError extends Error {
   }
 }
 
+const SESSION_EXPIRED = 'Your session has expired. Please log in again.'
+
+/** Reads the user id from the login token without a network call. The
+ *  token's signature is still verified by the database on EVERY query we
+ *  make with it (and RLS applies), so a forged token gets no data. */
+function readClaims(token: string): { sub?: string; exp?: number } | null {
+  try {
+    const payload = token.split('.')[1]
+    return JSON.parse(Buffer.from(payload.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'))
+  } catch {
+    return null
+  }
+}
+
 export async function userClient(req: VercelRequest): Promise<{ sb: SupabaseClient; me: string }> {
   const header = req.headers.authorization ?? ''
   const token = header.startsWith('Bearer ') ? header.slice(7) : ''
   if (!token) throw new HttpError(401, 'Please log in.')
+  const claims = readClaims(token)
+  if (!claims?.sub || !/^[0-9a-f-]{36}$/.test(claims.sub) || !claims.exp || claims.exp * 1000 < Date.now()) {
+    throw new HttpError(401, SESSION_EXPIRED)
+  }
   const sb = createClient(URL, ANON, {
     global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { persistSession: false, autoRefreshToken: false },
   })
-  const { data, error } = await sb.auth.getUser(token)
-  if (error || !data.user) throw new HttpError(401, 'Your session has expired. Please log in again.')
-  return { sb, me: data.user.id }
+  return { sb, me: claims.sub }
 }
 
 export function handle(fn: (req: VercelRequest, res: VercelResponse) => Promise<void>) {
@@ -38,8 +54,12 @@ export function handle(fn: (req: VercelRequest, res: VercelResponse) => Promise<
   }
 }
 
-function check<T>(result: { data: T | null; error: { message: string } | null }): T {
-  if (result.error) throw new Error(result.error.message)
+function check<T>(result: { data: T | null; error: { message: string; code?: string } | null }): T {
+  if (result.error) {
+    // The database rejected the token (bad signature, expired, revoked).
+    if (result.error.code?.startsWith('PGRST3') || /jwt/i.test(result.error.message)) throw new HttpError(401, SESSION_EXPIRED)
+    throw new Error(result.error.message)
+  }
   return (result.data ?? []) as T
 }
 
@@ -47,7 +67,9 @@ type Engagement = { post_id: string; posts: { author_id: string; tags: string[] 
 
 const add = (map: Map<string, number>, key: string, by: number) => map.set(key, (map.get(key) ?? 0) + by)
 
-export async function loadSignals(sb: SupabaseClient, me: string): Promise<Signals> {
+/** Everything the ranking knows about you, plus which posts you already
+ *  liked/saved (reused for the like/save buttons — no extra query). */
+export async function loadSignals(sb: SupabaseClient, me: string): Promise<{ signals: Signals; liked: Set<string>; saved: Set<string> }> {
   const [profile, follows, likes, saves, seeLess, reports] = await Promise.all([
     sb.from('profiles').select('interests').eq('id', me).maybeSingle(),
     sb.from('follows').select('followee_id').eq('follower_id', me),
@@ -75,67 +97,58 @@ export async function loadSignals(sb: SupabaseClient, me: string): Promise<Signa
   // Cold start: interests picked at onboarding count like a few likes each,
   // so a brand-new account gets a relevant feed before its first tap.
   for (const t of (profile.data?.interests as string[] | undefined) ?? []) add(signals.tagAffinity, t, 2)
-  engage(check(likes) as unknown as Engagement[], 1)
-  engage(check(saves) as unknown as Engagement[], 1.5)
+  const likeRows = check(likes) as unknown as Engagement[]
+  const saveRows = check(saves) as unknown as Engagement[]
+  engage(likeRows, 1)
+  engage(saveRows, 1.5)
   for (const r of check(seeLess) as unknown as Engagement[]) {
     signals.hidden.add(r.post_id)
     if (!r.posts) continue
     add(signals.seeLessAuthors, r.posts.author_id, 1)
     for (const t of r.posts.tags ?? []) add(signals.seeLessTags, t, 1)
   }
-  return signals
+  return { signals, liked: new Set(likeRows.map((r) => r.post_id)), saved: new Set(saveRows.map((r) => r.post_id)) }
 }
 
-const POST_COLUMNS = 'id, author_id, image_url, caption, tags, like_count, comment_count, report_count, created_at'
-type PostRow = Omit<Candidate, 'sources'> & { image_url: string; caption: string }
+// Authors come embedded in the same query (no separate profiles lookup).
+const POST_COLUMNS = 'id, author_id, image_url, caption, tags, like_count, comment_count, report_count, created_at, ' +
+  'author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url)'
+type PostRow = Omit<Candidate, 'sources'> & { image_url: string; caption: string; author: unknown }
+type Result = { data: unknown; error: { message: string; code?: string } | null }
+const empty: Result = { data: [], error: null }
 
-/** Stage 1: retrieval from several candidate sources. */
-export async function retrieve(sb: SupabaseClient, signals: Signals, surface: Surface): Promise<Candidate[]> {
-  const base = () => sb.from('posts').select(POST_COLUMNS).eq('type', 'post')
-  const topTags = [...signals.tagAffinity.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([t]) => t)
+/** Stage 1a: sources that don't depend on who you are — start them at once,
+ *  in parallel with loading your signals. */
+export function retrieveGeneral(sb: SupabaseClient): Promise<[Result, Result]> {
   const since = new Date(Date.now() - 3 * 24 * 3_600_000).toISOString()
+  return Promise.all([
+    sb.from('posts').select(POST_COLUMNS).eq('type', 'post').gte('created_at', since).order('like_count', { ascending: false }).limit(100),
+    sb.from('posts').select(POST_COLUMNS).eq('type', 'post').order('created_at', { ascending: false }).limit(60),
+  ]) as unknown as Promise<[Result, Result]>
+}
+
+/** Stage 1b: personal sources (people you follow, topics you like), then
+ *  merge everything. A post found by several sources keeps all of them. */
+export async function retrievePersonal(sb: SupabaseClient, signals: Signals, surface: Surface, general: Promise<[Result, Result]>): Promise<Candidate[]> {
+  const topTags = [...signals.tagAffinity.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([t]) => t)
   const following = [...signals.following]
-
-  const [byFollowing, bySimilar, byTrending, byFresh] = await Promise.all([
+  const [byFollowing, bySimilar, [byTrending, byFresh]] = await Promise.all([
     surface === 'feed' && following.length
-      ? base().in('author_id', following).order('created_at', { ascending: false }).limit(150)
-      : Promise.resolve({ data: [], error: null }),
+      ? sb.from('posts').select(POST_COLUMNS).eq('type', 'post').in('author_id', following).order('created_at', { ascending: false }).limit(150)
+      : Promise.resolve(empty),
     topTags.length
-      ? base().overlaps('tags', topTags).order('created_at', { ascending: false }).limit(150)
-      : Promise.resolve({ data: [], error: null }),
-    base().gte('created_at', since).order('like_count', { ascending: false }).limit(100),
-    base().order('created_at', { ascending: false }).limit(60),
+      ? sb.from('posts').select(POST_COLUMNS).eq('type', 'post').overlaps('tags', topTags).order('created_at', { ascending: false }).limit(150)
+      : Promise.resolve(empty),
+    general,
   ])
-
   let merged = mergeSources([
-    ['following', check(byFollowing) as PostRow[]],
-    ['similar', check(bySimilar) as PostRow[]],
+    ['following', check(byFollowing as Result) as PostRow[]],
+    ['similar', check(bySimilar as Result) as PostRow[]],
     ['trending', check(byTrending) as PostRow[]],
     ['fresh', check(byFresh) as PostRow[]],
   ])
   if (surface === 'explore') merged = merged.filter((c) => !signals.following.has(c.author_id))
   return merged
-}
-
-/** Loads authors and my like/save state for the posts we are returning. */
-export async function hydrate(sb: SupabaseClient, me: string, posts: PostRow[]) {
-  const ids = posts.map((p) => p.id)
-  const authorIds = [...new Set(posts.map((p) => p.author_id))]
-  if (!ids.length) return []
-  const [authors, liked, saved] = await Promise.all([
-    sb.from('profiles').select('id, username, full_name, avatar_url, bio').in('id', authorIds),
-    sb.from('likes').select('post_id').eq('user_id', me).in('post_id', ids),
-    sb.from('saves').select('post_id').eq('user_id', me).in('post_id', ids),
-  ])
-  const byId = new Map(check(authors).map((a: { id: string }) => [a.id, a]))
-  const likedSet = new Set(check(liked).map((r: { post_id: string }) => r.post_id))
-  const savedSet = new Set(check(saved).map((r: { post_id: string }) => r.post_id))
-  return posts.map(({ report_count: _hidden, ...p }) => ({
-    ...p,
-    author: byId.get(p.author_id) ?? null,
-    liked: likedSet.has(p.id),
-    saved: savedSet.has(p.id),
-  }))
 }
 
 export { check }

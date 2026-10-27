@@ -13,7 +13,7 @@ An Instagram-style social app built for Code Hackathon 2026: photo posts, profil
 | Sign-up (email + password, 2 short steps), log in, onboarding with interests | Done, tested |
 | Profiles, edit profile (photo, name, username, bio), followers / following | Done, tested |
 | Photo posts (shrunk in the browser before upload), captions, topics, edit caption, delete | Done, tested |
-| Home feed and Explore ranked on the server, "Why am I seeing this?", feed preferences | Built — testing next |
+| Home feed ranked on the server (~0.7–1 s), "Why am I seeing this?", see fewer, report, feed preferences | Done, tested |
 | Likes, comments, saves, "see fewer posts like this", report | Built |
 | Direct messages (real time, sent/seen ticks, offline outbox) | Built |
 | Notifications (likes, comments, follows) | Built |
@@ -41,7 +41,7 @@ Database: run `supabase/schema.sql`, then `supabase/seed.sql` (30 demo accounts,
 | `pnpm dev` | Dev server with the `/api` functions |
 | `pnpm build` | Type-check and production build |
 | `pnpm test` | Ranking unit tests |
-| `node tests/m1-accounts.e2e.mjs` | End-to-end checks (also `m2-profiles`, `m3-posts`) against your Supabase project — creates throwaway test accounts |
+| `node tests/m1-accounts.e2e.mjs` | End-to-end checks (also `m2-profiles`, `m3-posts`, `m4-feed`) against your Supabase project — creates throwaway test accounts. `m4-feed` also needs `pnpm dev` running (or `CHRONOS_API=<url>`) |
 
 ## Project structure
 

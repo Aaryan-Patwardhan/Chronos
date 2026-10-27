@@ -18,9 +18,15 @@ export default function WhyModal({ postId, surface, onClose }: { postId: string;
   const [error, setError] = useState('')
 
   useEffect(() => {
-    api<{ trace: Trace }>(`/api/why?post=${postId}&surface=${surface}`)
-      .then((r) => setTrace(r.trace))
-      .catch((e) => setError(friendly(e, "We couldn't load the explanation. Please try again.")))
+    let cancelled = false
+    const url = `/api/why?post=${postId}&surface=${surface}`
+    // The explanation is saved just after the feed is sent, so if someone taps
+    // "Why?" within a split second it may not be there yet: retry once.
+    api<{ trace: Trace }>(url)
+      .catch(() => new Promise((r) => setTimeout(r, 800)).then(() => api<{ trace: Trace }>(url)))
+      .then((r) => { if (!cancelled) setTrace(r.trace) })
+      .catch((e) => { if (!cancelled) setError(friendly(e, "We couldn't load the explanation. Please try again.")) })
+    return () => { cancelled = true }
   }, [postId, surface])
 
   return (
