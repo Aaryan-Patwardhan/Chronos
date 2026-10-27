@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { Bookmark, Grid3x3, Share2 } from 'lucide-react'
+import { Bookmark, Clapperboard, Grid3x3, Play, Share2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { Profile as P } from '../lib/types'
 import { useAuth } from '../store/auth'
@@ -9,7 +9,7 @@ import FollowButton from '../components/FollowButton'
 import PostImage from '../components/PostImage'
 import { Status } from './Feed'
 
-type Tile = { id: string; image_url: string; caption: string }
+type Tile = { id: string; image_url: string; caption: string; type?: string }
 
 export default function Profile() {
   const { username = '' } = useParams()
@@ -20,7 +20,8 @@ export default function Profile() {
   const [counts, setCounts] = useState({ followers: 0, following: 0 })
   const [iFollow, setIFollow] = useState(false)
   const [note, setNote] = useState('')
-  const [tab, setTab] = useState<'posts' | 'saved'>('posts')
+  const [reels, setReels] = useState<Tile[]>([])
+  const [tab, setTab] = useState<'posts' | 'reels' | 'saved'>('posts')
   const [saved, setSaved] = useState<Tile[] | null>(null)
 
   useEffect(() => {
@@ -33,14 +34,16 @@ export default function Profile() {
       if (cancelled) return
       if (!data) return setUser(null)
       const [list, followers, following, mine] = await Promise.all([
-        supabase.from('posts').select('id, image_url, caption').eq('author_id', data.id).eq('type', 'post').order('created_at', { ascending: false }),
+        supabase.from('posts').select('id, image_url, caption, type').eq('author_id', data.id).in('type', ['post', 'reel']).order('created_at', { ascending: false }),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('followee_id', data.id),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', data.id),
         supabase.from('follows').select('followee_id').eq('follower_id', me.id).eq('followee_id', data.id),
       ])
       if (cancelled) return
       setUser(data as P)
-      setPosts((list.data ?? []) as Tile[])
+      const all = (list.data ?? []) as Tile[]
+      setPosts(all.filter((p) => p.type === 'post'))
+      setReels(all.filter((p) => p.type === 'reel'))
       setCounts({ followers: followers.count ?? 0, following: following.count ?? 0 })
       setIFollow(!!mine.data?.length)
     })()
@@ -52,7 +55,7 @@ export default function Profile() {
   async function openSaved() {
     setTab('saved')
     if (saved || !me) return
-    const { data } = await supabase.from('saves').select('post:posts(id, image_url, caption)')
+    const { data } = await supabase.from('saves').select('post:posts(id, image_url, caption, type)')
       .eq('user_id', me.id).order('created_at', { ascending: false }).limit(300)
     setSaved(((data ?? []) as unknown as { post: Tile | null }[]).map((r) => r.post).filter((p): p is Tile => !!p))
   }
@@ -104,16 +107,11 @@ export default function Profile() {
       </div>
       {note && <p className="mx-4 mb-3 rounded-md bg-neutral-100 px-3 py-2 text-sm text-neutral-700">{note}</p>}
 
-      {isMe && (
+      {(isMe || reels.length > 0) && (
         <div className="flex border-t border-neutral-200" role="tablist">
-          <button role="tab" aria-selected={tab === 'posts'} onClick={() => setTab('posts')}
-            className={`flex flex-1 items-center justify-center gap-2 py-3 text-xs font-semibold ${tab === 'posts' ? 'border-t-2 border-neutral-900 text-neutral-900' : 'text-neutral-400'}`}>
-            <Grid3x3 size={16} />POSTS
-          </button>
-          <button role="tab" aria-selected={tab === 'saved'} onClick={openSaved}
-            className={`flex flex-1 items-center justify-center gap-2 py-3 text-xs font-semibold ${tab === 'saved' ? 'border-t-2 border-neutral-900 text-neutral-900' : 'text-neutral-400'}`}>
-            <Bookmark size={16} />SAVED
-          </button>
+          <TabButton on={tab === 'posts'} onClick={() => setTab('posts')} icon={<Grid3x3 size={16} />} label="POSTS" />
+          <TabButton on={tab === 'reels'} onClick={() => setTab('reels')} icon={<Clapperboard size={16} />} label="REELS" />
+          {isMe && <TabButton on={tab === 'saved'} onClick={openSaved} icon={<Bookmark size={16} />} label="SAVED" />}
         </div>
       )}
       {tab === 'saved' ? (
@@ -124,13 +122,25 @@ export default function Profile() {
               <p className="px-4 py-2 text-xs text-neutral-500">Only you can see what you've saved.</p>
               <div className="grid grid-cols-3 gap-0.5">
                 {saved.map((p) => (
-                  <Link key={p.id} to={`/p/${p.id}`} className="aspect-square bg-neutral-100">
+                  <Link key={p.id} to={`/p/${p.id}`} className="relative aspect-square bg-neutral-100">
                     <PostImage src={p.image_url} alt={p.caption || 'Saved post'} className="h-full w-full" />
+                    {p.type === 'reel' && <Play size={18} className="absolute right-1.5 top-1.5 fill-white text-white drop-shadow" aria-label="Reel" />}
                   </Link>
                 ))}
               </div>
             </>
           )
+      ) : tab === 'reels' ? (
+        reels.length ? (
+          <div className="grid grid-cols-3 gap-0.5">
+            {reels.map((p) => (
+              <Link key={p.id} to={`/p/${p.id}`} className="relative aspect-[9/16] bg-neutral-900">
+                <PostImage src={p.image_url} alt={p.caption || 'Reel'} className="h-full w-full" />
+                <Play size={18} className="absolute left-1.5 top-1.5 fill-white text-white drop-shadow" aria-hidden />
+              </Link>
+            ))}
+          </div>
+        ) : <Status text="Share your first reel." action={<Link to="/reels/new" className="btn-primary">Create a reel</Link>} />
       ) : posts.length ? (
         <div className="grid grid-cols-3 gap-0.5">
           {posts.map((p) => (
@@ -141,5 +151,14 @@ export default function Profile() {
         </div>
       ) : <Status text={isMe ? 'Share your first post.' : 'No posts yet.'} action={isMe ? <Link to="/new" className="btn-primary">Create a post</Link> : undefined} />}
     </div>
+  )
+}
+
+function TabButton({ on, onClick, icon, label }: { on: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+  return (
+    <button role="tab" aria-selected={on} onClick={onClick}
+      className={`flex flex-1 items-center justify-center gap-2 py-3 text-xs font-semibold ${on ? 'border-t-2 border-neutral-900 text-neutral-900' : 'text-neutral-400'}`}>
+      {icon}{label}
+    </button>
   )
 }

@@ -34,7 +34,7 @@ export default function PostPage() {
     setPost(undefined)
     void (async () => {
       const { data } = await supabase.from('posts')
-        .select('id, author_id, image_url, caption, tags, like_count, comment_count, created_at, aspect, author:profiles!posts_author_id_fkey(username, avatar_url, full_name)')
+        .select('id, author_id, image_url, video_url, duration, caption, tags, like_count, comment_count, created_at, aspect, author:profiles!posts_author_id_fkey(username, avatar_url, full_name)')
         .eq('id', id).maybeSingle()
       if (cancelled) return
       if (!data) return setPost(null)
@@ -86,7 +86,7 @@ export default function PostPage() {
 
   return (
     <div>
-      <PostCard post={post} surface={from === 'explore' || from === 'feed' ? from : undefined}
+      <PostCard post={post} surface={from === 'explore' || from === 'feed' || from === 'reels' ? from : undefined}
         onDeleted={() => navigate(me ? `/u/${me.username}` : '/', { replace: true })} />
 
       <div ref={commentsRef} id="comments" className="scroll-mt-16 px-4 pt-4">

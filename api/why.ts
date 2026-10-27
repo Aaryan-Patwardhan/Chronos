@@ -1,11 +1,12 @@
-// GET /api/why?post=<id>&surface=feed|explore — the ranking trace for one
+// GET /api/why?post=<id>&surface=feed|explore|reels — the ranking trace for one
 // post, only when the user asks "Why am I seeing this?".
+import { SURFACES } from './_lib/rank.js'
 import { handle, userClient, HttpError } from './_lib/server.js'
 
 export default handle(async (req, res) => {
   if (req.method !== 'GET') throw new HttpError(405, 'Use GET.')
   const post = String(req.query.post ?? '')
-  const surface = req.query.surface === 'explore' ? 'explore' : 'feed'
+  const surface = SURFACES.find((s) => s === req.query.surface) ?? 'feed'
   if (!/^[0-9a-f-]{36}$/.test(post)) throw new HttpError(400, 'Unknown post.')
   const { sb, me } = await userClient(req)
   const { data, error } = await sb.from('feed_traces').select('trace, created_at')

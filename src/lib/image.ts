@@ -40,8 +40,8 @@ export async function prepareImage(file: File, { maxSide = 1440 }: { maxSide?: n
 }
 
 /** Storage path of a file in our "media" bucket, from its public URL. */
-export function storagePath(url: string): string | null {
-  const marker = '/storage/v1/object/public/media/'
+export function storagePath(url: string, bucket: 'media' | 'videos' = 'media'): string | null {
+  const marker = `/storage/v1/object/public/${bucket}/`
   const i = url.indexOf(marker)
   return i === -1 ? null : decodeURIComponent(url.slice(i + marker.length))
 }

@@ -111,19 +111,24 @@ export async function loadSignals(sb: SupabaseClient, me: string): Promise<{ sig
 }
 
 // Authors come embedded in the same query (no separate profiles lookup).
-const POST_COLUMNS = 'id, author_id, image_url, caption, tags, like_count, comment_count, report_count, created_at, aspect, ' +
+const POST_COLUMNS = 'id, author_id, image_url, video_url, duration, caption, tags, like_count, comment_count, report_count, created_at, aspect, ' +
   'author:profiles!posts_author_id_fkey(id, username, full_name, avatar_url)'
 type PostRow = Omit<Candidate, 'sources'> & { image_url: string; caption: string; author: unknown }
 type Result = { data: unknown; error: { message: string; code?: string } | null }
 const empty: Result = { data: [], error: null }
 
+/** Reels rank only reels; the feed and Explore rank only photo posts. */
+const kindOf = (surface: Surface) => (surface === 'reels' ? 'reel' : 'post')
+
 /** Stage 1a: sources that don't depend on who you are — start them at once,
  *  in parallel with loading your signals. */
-export function retrieveGeneral(sb: SupabaseClient): Promise<[Result, Result]> {
-  const since = new Date(Date.now() - 3 * 24 * 3_600_000).toISOString()
+export function retrieveGeneral(sb: SupabaseClient, surface: Surface): Promise<[Result, Result]> {
+  const kind = kindOf(surface)
+  // Reels are fewer, so "trending" looks back a week instead of 3 days.
+  const since = new Date(Date.now() - (kind === 'reel' ? 7 : 3) * 24 * 3_600_000).toISOString()
   return Promise.all([
-    sb.from('posts').select(POST_COLUMNS).eq('type', 'post').gte('created_at', since).order('like_count', { ascending: false }).limit(100),
-    sb.from('posts').select(POST_COLUMNS).eq('type', 'post').order('created_at', { ascending: false }).limit(60),
+    sb.from('posts').select(POST_COLUMNS).eq('type', kind).gte('created_at', since).order('like_count', { ascending: false }).limit(100),
+    sb.from('posts').select(POST_COLUMNS).eq('type', kind).order('created_at', { ascending: false }).limit(60),
   ]) as unknown as Promise<[Result, Result]>
 }
 
@@ -132,12 +137,13 @@ export function retrieveGeneral(sb: SupabaseClient): Promise<[Result, Result]> {
 export async function retrievePersonal(sb: SupabaseClient, signals: Signals, surface: Surface, general: Promise<[Result, Result]>): Promise<Candidate[]> {
   const topTags = [...signals.tagAffinity.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([t]) => t)
   const following = [...signals.following]
+  const kind = kindOf(surface)
   const [byFollowing, bySimilar, [byTrending, byFresh]] = await Promise.all([
-    surface === 'feed' && following.length
-      ? sb.from('posts').select(POST_COLUMNS).eq('type', 'post').in('author_id', following).order('created_at', { ascending: false }).limit(150)
+    surface !== 'explore' && following.length
+      ? sb.from('posts').select(POST_COLUMNS).eq('type', kind).in('author_id', following).order('created_at', { ascending: false }).limit(150)
       : Promise.resolve(empty),
     topTags.length
-      ? sb.from('posts').select(POST_COLUMNS).eq('type', 'post').overlaps('tags', topTags).order('created_at', { ascending: false }).limit(150)
+      ? sb.from('posts').select(POST_COLUMNS).eq('type', kind).overlaps('tags', topTags).order('created_at', { ascending: false }).limit(150)
       : Promise.resolve(empty),
     general,
   ])

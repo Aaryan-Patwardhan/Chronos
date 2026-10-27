@@ -1,19 +1,19 @@
-// GET /api/feed?surface=feed|explore — ranked posts. Only the order and the
+// GET /api/feed?surface=feed|explore|reels — ranked posts (or reels). Only the order and the
 // posts are returned; ranking traces stay on the server until /api/why asks.
 // Two network steps: (signals ∥ general sources) → personal sources. The
 // traces are saved after the response is sent (waitUntil on Vercel).
 import { waitUntil } from '@vercel/functions'
-import { rank, cleanWeights, type Surface } from './_lib/rank.js'
+import { rank, cleanWeights, SURFACES, type Surface } from './_lib/rank.js'
 import { check, handle, loadSignals, retrieveGeneral, retrievePersonal, userClient, HttpError } from './_lib/server.js'
 
 type Ranked = { id: string; report_count?: number; sources?: unknown }
 
 export default handle(async (req, res) => {
   if (req.method !== 'GET') throw new HttpError(405, 'Use GET.')
-  const surface: Surface = req.query.surface === 'explore' ? 'explore' : 'feed'
+  const surface: Surface = SURFACES.find((s) => s === req.query.surface) ?? 'feed'
   const { sb, me } = await userClient(req)
 
-  const general = retrieveGeneral(sb)
+  const general = retrieveGeneral(sb, surface)
   const [{ signals, liked, saved }, prefs] = await Promise.all([
     loadSignals(sb, me),
     sb.from('feed_prefs').select('weights').eq('user_id', me).maybeSingle(),

@@ -446,3 +446,29 @@ create index posts_story_live_idx on posts (author_id, expires_at) where type = 
 -- their real shape (clamped 4:5 … 1.91:1) instead of cropping to a square.
 alter table posts add column aspect real;
 alter table posts add constraint posts_aspect_range check (aspect is null or aspect between 0.3 and 3.5);
+
+-- ═══ Module 6: Reels ════════════════════════════════════════════════════
+-- A reel is a post with a video (videos bucket); image_url holds its cover
+-- (media bucket). Ranked by /api/feed?surface=reels, separate from photos.
+alter table posts drop constraint posts_type_check;
+alter table posts add constraint posts_type_check check (type in ('post','story','reel'));
+alter table posts add column video_url text, add column duration real;
+alter table posts add constraint posts_reel_video check (
+  (type = 'reel') = (video_url is not null)
+  and (video_url is null or video_url like 'https://obinuxhvezlvtqtzsnmj.supabase.co/storage/v1/object/public/videos/%')
+  and (type <> 'reel' or duration between 1 and 91)
+);
+create index posts_reels_recent on posts (created_at desc) where type = 'reel';
+
+alter table feed_traces drop constraint feed_traces_surface_check;
+alter table feed_traces add constraint feed_traces_surface_check check (surface in ('feed','explore','reels'));
+
+-- 30 MB, video only. Same own-folder rules as the photo bucket.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('videos', 'videos', true, 31457280, array['video/mp4','video/webm','video/quicktime']);
+create policy "videos upload own folder" on storage.objects for insert to authenticated
+  with check (bucket_id = 'videos' and (storage.foldername(name))[1] = (select auth.uid())::text);
+create policy "videos read own folder" on storage.objects for select to authenticated
+  using (bucket_id = 'videos' and (storage.foldername(name))[1] = (select auth.uid())::text);
+create policy "videos delete own folder" on storage.objects for delete to authenticated
+  using (bucket_id = 'videos' and (storage.foldername(name))[1] = (select auth.uid())::text);

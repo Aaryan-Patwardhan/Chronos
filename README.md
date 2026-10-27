@@ -19,7 +19,7 @@ An Instagram-style social app built for Code Hackathon 2026: photo posts, profil
 | Direct messages (real time, sent/seen ticks, offline outbox) | Built |
 | Notifications (likes, comments, follows) | Built |
 | Stories (24 h, unseen rings, hold to pause, replies by message, "Seen by", delete) | Done, tested |
-| Reels | Not built yet (mock data; sample videos no longer load) |
+| Reels (upload up to 90 s, full-screen swipe, ranked on the server, likes/comments/saves, "Why am I seeing this?") | Done, tested |
 
 ## Tech stack
 
@@ -36,14 +36,14 @@ cp .env.example .env.local   # fill in your Supabase URL and publishable key
 pnpm dev                     # http://localhost:5173 — also runs api/ locally
 ```
 
-Database (new, empty Supabase project only): run `supabase/schema.sql`, then `supabase/seed.sql` (30 demo accounts, 200 posts, each with its own photo). Both scripts refuse to run on a database that already has Chronos data — change a live database with a small migration instead. In Auth settings, turn off "Confirm email" for a one-minute sign-up.
+Database (new, empty Supabase project only): run `supabase/schema.sql`, then `supabase/seed.sql` (30 demo accounts, 200 posts, each with its own photo), then `supabase/demo-reels.sql` (19 reels). Both scripts refuse to run on a database that already has Chronos data — change a live database with a small migration instead. In Auth settings, turn off "Confirm email" for a one-minute sign-up.
 
 | Command | What it does |
 |---|---|
 | `pnpm dev` | Dev server with the `/api` functions |
 | `pnpm build` | Type-check and production build |
 | `pnpm test` | Ranking unit tests |
-| `node tests/m1-accounts.e2e.mjs` | End-to-end checks (also `m2-profiles`, `m3-posts`, `m4-feed`, `m5-stories`, `m7-explore`, `m8-engagement`, `m9-dms`) against your Supabase project — creates throwaway test accounts. `m4-feed` and `m7-explore` also need `pnpm dev` running (or `CHRONOS_API=<url>`) |
+| `node tests/m1-accounts.e2e.mjs` | End-to-end checks (also `m2-profiles`, `m3-posts`, `m4-feed`, `m5-stories`, `m6-reels`, `m7-explore`, `m8-engagement`, `m9-dms`) against your Supabase project — creates throwaway test accounts. `m4-feed` and `m7-explore` also need `pnpm dev` running (or `CHRONOS_API=<url>`) |
 
 ## Project structure
 
@@ -60,7 +60,7 @@ tests/          end-to-end checks per module
 
 ## Credits
 
-Demo photos are freely licensed images from [Wikimedia Commons](https://commons.wikimedia.org/) (CC BY, CC BY-SA, CC0 and public domain). Title, author, licence and source for every photo: [`supabase/demo-image-credits.json`](supabase/demo-image-credits.json).
+Demo photos and reel clips are freely licensed media from [Wikimedia Commons](https://commons.wikimedia.org/) (CC BY, CC BY-SA, CC0 and public domain). Title, author, licence and source for each one: [`supabase/demo-image-credits.json`](supabase/demo-image-credits.json) and [`supabase/demo-video-credits.json`](supabase/demo-video-credits.json).
 
 ## Licence
 

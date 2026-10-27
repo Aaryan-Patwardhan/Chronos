@@ -13,7 +13,8 @@ const SOURCE_TEXT: Record<string, string> = {
 }
 const pct = (n: number) => `${Math.round(n * 100)}%`
 
-export default function WhyModal({ postId, surface, onClose }: { postId: string; surface: 'feed' | 'explore'; onClose: () => void }) {
+export default function WhyModal({ postId, surface, onClose }: { postId: string; surface: 'feed' | 'explore' | 'reels'; onClose: () => void }) {
+  const noun = surface === 'reels' ? 'reel' : 'post'
   const [trace, setTrace] = useState<Trace | null>(null)
   const [error, setError] = useState('')
 
@@ -31,9 +32,9 @@ export default function WhyModal({ postId, surface, onClose }: { postId: string;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" onClick={onClose}>
-      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-5 sm:rounded-2xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Why am I seeing this post?">
+      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-5 sm:rounded-2xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Why am I seeing this ${noun}?`}>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Why you're seeing this post</h2>
+          <h2 className="text-lg font-semibold">Why you're seeing this {noun}</h2>
           <button onClick={onClose} aria-label="Close" className="p-1"><X size={20} /></button>
         </div>
         {error && <p className="text-sm text-rose-600">{error}</p>}
@@ -48,7 +49,7 @@ export default function WhyModal({ postId, surface, onClose }: { postId: string;
             </section>
             <section>
               <h3 className="font-semibold">2 · First filter</h3>
-              <p className="text-neutral-700">Kept in the top {trace.firstStage.kept} of {trace.firstStage.of} candidate posts.</p>
+              <p className="text-neutral-700">Kept in the top {trace.firstStage.kept} of {trace.firstStage.of} candidate {noun}s.</p>
             </section>
             <section>
               <h3 className="font-semibold">3 · What we predicted</h3>
@@ -73,7 +74,7 @@ export default function WhyModal({ postId, surface, onClose }: { postId: string;
                 : <p className="text-neutral-500">No rules changed its position.</p>}
             </section>
             <p className="border-t pt-3 text-xs text-neutral-500">
-              Chronos ranks posts on the server in four stages, modelled on Instagram's Explore system. You can change what matters to you in Settings → Feed preferences.
+              Chronos ranks {noun}s on the server in four stages, modelled on Instagram's Explore system. You can change what matters to you in Settings → Feed preferences.
             </p>
           </div>
         )}

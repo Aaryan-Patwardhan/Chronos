@@ -6,7 +6,8 @@
 // The predictions are transparent formulas from features, not a trained
 // model. Pure functions only: no network or database code in this file.
 
-export type Surface = 'feed' | 'explore'
+export type Surface = 'feed' | 'explore' | 'reels'
+export const SURFACES: Surface[] = ['feed', 'explore', 'reels']
 export type Source = 'following' | 'similar' | 'trending' | 'fresh'
 
 export type Weights = {
