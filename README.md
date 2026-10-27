@@ -10,7 +10,7 @@ An Instagram-style social app built for Code Hackathon 2026: photo posts, profil
 
 | Area | Status |
 |---|---|
-| Sign-up (email + password, 2 short steps), log in, onboarding with interests | Done, tested |
+| Sign-up (email + password), log in, onboarding: username, interests, then suggested accounts to follow (nothing is followed automatically) | Done, tested |
 | Profiles, edit profile (photo, name, username, bio), followers / following | Done, tested |
 | Photo posts (shrunk in the browser before upload), captions, topics, edit caption, delete | Done, tested |
 | Home feed ranked on the server (~0.7–1 s), "Why am I seeing this?", see fewer, report, feed preferences | Done, tested |

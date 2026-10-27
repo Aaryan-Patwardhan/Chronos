@@ -251,11 +251,8 @@ begin
          avatar_url = 'https://api.dicebear.com/9.x/initials/svg?seed=' || clean,
          interests = coalesce(p_interests[1:6], '{}'), onboarded = true
    where id = me;
-  insert into follows (follower_id, followee_id)
-  select me, p.id from profiles p
-   where p.is_demo and p.interests && p_interests and p.id <> me
-   order by random() limit 6
-  on conflict do nothing;
+  -- No automatic follows: onboarding suggests accounts (suggested_accounts)
+  -- and the user chooses whom to follow.
 end $$;
 
 -- Mark a conversation as seen. Works through the "recipient marks seen"
@@ -472,3 +469,27 @@ create policy "videos read own folder" on storage.objects for select to authenti
   using (bucket_id = 'videos' and (storage.foldername(name))[1] = (select auth.uid())::text);
 create policy "videos delete own folder" on storage.objects for delete to authenticated
   using (bucket_id = 'videos' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+-- ═══ Onboarding: suggested accounts (no auto-follow) ═══════════════════
+-- Accounts that share your interests, most shared interests first, then the
+-- most followed. Only accounts that have shared something; skips you and
+-- people you already follow.
+create or replace function suggested_accounts(p_limit int default 12)
+returns table (id uuid, username text, full_name text, avatar_url text, bio text, shared text[], followers bigint)
+language sql stable security invoker set search_path = public as $$
+  with mine as (select interests from profiles where id = (select auth.uid()))
+  select p.id, p.username, p.full_name, p.avatar_url, p.bio,
+         array(select unnest(p.interests) intersect select unnest(mine.interests)) as shared,
+         (select count(*) from follows f where f.followee_id = p.id) as followers
+  from profiles p, mine
+  where p.onboarded
+    and p.id <> (select auth.uid())
+    and p.interests && mine.interests
+    and exists (select 1 from posts x where x.author_id = p.id and x.type in ('post', 'reel'))
+    and not exists (select 1 from follows f where f.follower_id = (select auth.uid()) and f.followee_id = p.id)
+  order by cardinality(array(select unnest(p.interests) intersect select unnest(mine.interests))) desc,
+           followers desc, p.username
+  limit least(greatest(coalesce(p_limit, 12), 1), 30);
+$$;
+revoke execute on function suggested_accounts(int) from public, anon;
+grant execute on function suggested_accounts(int) to authenticated;

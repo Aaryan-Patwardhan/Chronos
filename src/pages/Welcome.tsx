@@ -69,7 +69,7 @@ function AccountForm({ mode, onSwitch }: { mode: 'signup' | 'login'; onSwitch: (
     <form onSubmit={submit} className="mx-auto flex min-h-screen max-w-md flex-col gap-3 px-6 py-10">
       <button type="button" onClick={() => onSwitch('home')} className="mb-4 self-start text-sm text-neutral-500">← Back</button>
       <h1 className="text-2xl font-bold tracking-tight">{signup ? 'Create your account' : 'Welcome back'}</h1>
-      <p className="text-sm text-neutral-500">{signup ? 'Step 1 of 2 · then pick a username and your interests.' : 'Log in with your email and password.'}</p>
+      <p className="text-sm text-neutral-500">{signup ? 'Step 1 of 3 · then a username, your interests and people to follow.' : 'Log in with your email and password.'}</p>
       <label className="mt-4 text-sm font-medium" htmlFor="email">Email</label>
       <input id="email" className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus autoComplete="email" inputMode="email" />
       <label className="text-sm font-medium" htmlFor="password">Password</label>

@@ -1,11 +1,13 @@
-// Step 2 of sign-up, shown once: username (pre-filled) + 3–6 interests.
-// Interests seed the first feed and pick a few accounts to follow.
+// Sign-up steps 2 and 3, shown once: username (pre-filled) + 3–6 interests,
+// then accounts that share those interests. Nothing is followed
+// automatically — the user picks (or skips).
 import { useEffect, useState } from 'react'
 import { Check, Loader2, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { INTERESTS, suggestUsername } from '../lib/interests'
 import { useAuth } from '../store/auth'
 import { friendly } from '../lib/errors'
+import SuggestedAccounts from '../components/SuggestedAccounts'
 
 const MIN = 3
 const MAX = 6
@@ -18,6 +20,8 @@ export default function Onboarding() {
   const [available, setAvailable] = useState<Availability>('idle')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [step, setStep] = useState<'basics' | 'people'>('basics')
+  const [followCount, setFollowCount] = useState(0)
 
   useEffect(() => {
     if (!/^[a-z0-9_.]{3,30}$/.test(username)) return setAvailable('invalid')
@@ -32,27 +36,42 @@ export default function Onboarding() {
   const toggle = (tag: string) =>
     setPicked((p) => (p.includes(tag) ? p.filter((t) => t !== tag) : p.length >= MAX ? p : [...p, tag]))
 
-  async function start() {
+  // Saves username + interests, then shows suggestions. The app opens only
+  // after "Continue", so this screen stays up for step 3.
+  async function saveBasics() {
     setError('')
     setBusy(true)
-    useAuth.setState({ settingUp: true })
-    try {
-      const { error } = await supabase.rpc('complete_onboarding', { p_username: username, p_interests: picked })
-      if (error) throw error
-      await useAuth.getState().loadProfile()
-    } catch (e) {
-      setError(friendly(e, "We couldn't finish setting up your account. Please try again."))
-    } finally {
-      setBusy(false)
-      useAuth.setState({ settingUp: false })
-    }
+    const { error } = await supabase.rpc('complete_onboarding', { p_username: username, p_interests: picked })
+    setBusy(false)
+    if (error) return setError(friendly(error, "We couldn't finish setting up your account. Please try again."))
+    setStep('people')
   }
+
+  async function finish() {
+    useAuth.setState({ settingUp: true })
+    try { await useAuth.getState().loadProfile() } finally { useAuth.setState({ settingUp: false }) }
+  }
+
+  if (step === 'people') return (
+    <div className="mx-auto flex min-h-screen max-w-md flex-col px-6 pt-10">
+      <h1 className="text-2xl font-bold tracking-tight">Accounts you might like</h1>
+      <p className="mt-1 text-sm text-neutral-500">Step 3 of 3 · they share your interests. Follow any you like — or skip, you can always find people in Explore.</p>
+      <div className="mt-6 flex-1"><SuggestedAccounts layout="list" limit={10} onCount={setFollowCount} /></div>
+      {/* Always on screen, even with a long list. */}
+      <div className="sticky bottom-0 -mx-6 mt-4 border-t border-neutral-200 bg-white px-6 pb-4 pt-3">
+        <button onClick={finish} className="btn-primary w-full py-3 text-base">
+          {followCount ? `Continue · following ${followCount}` : 'Continue'}
+        </button>
+        {followCount === 0 && <button onClick={finish} className="mt-1 w-full py-2 text-sm font-semibold text-neutral-500">Skip for now</button>}
+      </div>
+    </div>
+  )
 
   const ready = available === 'ok' && picked.length >= MIN && !busy
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col px-6 py-10">
       <h1 className="text-2xl font-bold tracking-tight">Make it yours</h1>
-      <p className="mt-1 text-sm text-neutral-500">Step 2 of 2 · two quick choices and you're in.</p>
+      <p className="mt-1 text-sm text-neutral-500">Step 2 of 3 · two quick choices, then pick people to follow.</p>
 
       <label className="mt-8 block text-sm font-semibold" htmlFor="username">Your username</label>
       <div className="mt-2 flex items-center gap-2">
@@ -83,8 +102,8 @@ export default function Onboarding() {
       </div>
 
       {error && <p className="mt-4 text-sm text-rose-600">{error}</p>}
-      <button onClick={start} disabled={!ready} className="btn-primary mt-auto w-full py-3 text-base">
-        {busy ? 'Setting up your feed…' : picked.length < MIN ? `Pick ${MIN - picked.length} more` : 'Start exploring'}
+      <button onClick={saveBasics} disabled={!ready} className="btn-primary mt-auto w-full py-3 text-base">
+        {busy ? 'Saving…' : picked.length < MIN ? `Pick ${MIN - picked.length} more` : 'Next'}
       </button>
     </div>
   )

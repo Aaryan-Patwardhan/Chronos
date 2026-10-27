@@ -52,9 +52,16 @@ const ob3 = await a.rpc('complete_onboarding', { p_username: nameA, p_interests:
 check('onboarding succeeds with valid input', !ob3.error, ob3.error?.message)
 const after = (await a.from('profiles').select('*').eq('id', aId).single()).data
 check('profile updated (username, interests, onboarded)', after.username === nameA && after.onboarded && after.interests.length === 3)
-const follows = await a.from('follows').select('followee_id, profiles!follows_followee_id_fkey(interests)').eq('follower_id', aId)
-check('cold start: auto-follows demo accounts (1–6)', follows.data?.length >= 1 && follows.data.length <= 6, `${follows.data?.length} follows`)
-check('auto-follows share an interest', follows.data?.every((f) => f.profiles.interests.some((t) => ['food', 'tech', 'art'].includes(t))))
+const follows = await a.from('follows').select('followee_id').eq('follower_id', aId)
+check('onboarding follows nobody automatically', follows.data?.length === 0, `${follows.data?.length} follows`)
+const sugg = await a.rpc('suggested_accounts', { p_limit: 10 })
+check('suggests accounts that share your interests', (sugg.data ?? []).length > 0 && sugg.data.every((u) => u.shared.length > 0 && u.shared.every((t) => ['food', 'tech', 'art'].includes(t))), `${sugg.data?.length} suggestions`)
+check('suggestions put most shared interests first', (sugg.data ?? []).every((u, i, l) => i === 0 || l[i - 1].shared.length >= u.shared.length))
+check('suggestions never include yourself', !(sugg.data ?? []).some((u) => u.id === aId))
+await a.from('follows').insert({ follower_id: aId, followee_id: sugg.data[0].id })
+const sugg2 = await a.rpc('suggested_accounts', { p_limit: 30 })
+check('people you follow drop out of suggestions', !(sugg2.data ?? []).some((u) => u.id === sugg.data[0].id))
+check('signed-out visitors cannot list suggestions', !!(await createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY).rpc('suggested_accounts', {})).error)
 
 // 6. Log out → wrong password refused → right password works.
 await a.auth.signOut()

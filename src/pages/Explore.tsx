@@ -1,5 +1,5 @@
 // Explore: a server-ranked grid of posts from people you don't follow,
-// plus search for accounts and #topics.
+// accounts suggested by your interests, plus search for accounts and #topics.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Clock, Hash, RefreshCw, Search, X } from 'lucide-react'
@@ -11,6 +11,7 @@ import type { CardPost } from '../components/PostCard'
 import { useAuth } from '../store/auth'
 import Avatar from '../components/Avatar'
 import PostImage from '../components/PostImage'
+import SuggestedAccounts from '../components/SuggestedAccounts'
 import { Status } from './Feed'
 
 type TagHit = { tag: string; posts: number }
@@ -166,6 +167,7 @@ export default function Explore() {
         <Status text="Nothing new to explore right now. Check back soon." />
       ) : (
         <>
+          <SuggestedAccounts layout="row" limit={12} />
           <div className="grid grid-cols-3 gap-0.5">
             {posts.map((p) => (
               <Link key={p.id} to={`/p/${p.id}?from=explore`} className="aspect-square bg-neutral-100">

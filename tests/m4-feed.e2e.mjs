@@ -106,6 +106,8 @@ const post = (await A.c.from('posts').insert({ author_id: A.id, image_url: url, 
 await B.c.from('reports').insert({ user_id: B.id, post_id: post.id })
 await C.c.from('reports').insert({ user_id: C.id, post_id: post.id })
 const F = await account('f', ['travel', 'nature', 'photography'])
+// Like a real user in onboarding step 3: follow a few suggested accounts.
+for (const u of ((await F.c.rpc('suggested_accounts', { p_limit: 6 })).data ?? [])) await F.c.from('follows').insert({ follower_id: F.id, followee_id: u.id })
 await F.c.from('follows').insert({ follower_id: F.id, followee_id: A.id })
 const fF = await feed(F)
 await sleep(1200)
