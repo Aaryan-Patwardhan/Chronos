@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { Bookmark, EyeOff, Flag, Heart, Info, MessageCircle, Ellipsis, Pencil, Send, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -47,6 +47,11 @@ export default function PostCard({ post, surface, onHide, onDeleted }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [busy, setBusy] = useState(false)
   const isMine = post.author_id === me?.id
+  const likeBusy = useRef(false)
+  const saveBusy = useRef(false)
+  const lastTap = useRef(0)
+  const [burst, setBurst] = useState(false)
+  const from = surface ? `?from=${surface}` : ''
 
   async function saveCaption() {
     setBusy(true)
@@ -67,24 +72,49 @@ export default function PostCard({ post, surface, onHide, onDeleted }: Props) {
     onDeleted?.(post.id)
   }
 
-  async function toggleLike() {
-    if (!me) return
-    const next = !liked
+  // One like request at a time, so a quick like→unlike can't reach the
+  // server in the wrong order. The count corrects itself if the server
+  // already had (or didn't have) this like.
+  async function setLike(next: boolean) {
+    if (!me || likeBusy.current || next === liked) return
+    likeBusy.current = true
     setLiked(next); setLikes((n) => n + (next ? 1 : -1))
-    const { error } = next
+    const res = next
       ? await supabase.from('likes').insert({ user_id: me.id, post_id: post.id })
-      : await supabase.from('likes').delete().eq('user_id', me.id).eq('post_id', post.id)
-    if (error && error.code !== '23505') { setLiked(!next); setLikes((n) => n + (next ? -1 : 1)) }
+      : await supabase.from('likes').delete().eq('user_id', me.id).eq('post_id', post.id).select('post_id')
+    likeBusy.current = false
+    if (next && res.error?.code === '23505') return setLikes((n) => n - 1)
+    if (!next && !res.error && (res.data ?? []).length === 0) return setLikes((n) => n + 1)
+    if (res.error) {
+      setLiked(!next); setLikes((n) => n + (next ? -1 : 1))
+      setNote(friendly(res.error, "We couldn't update the like. Please try again."))
+    }
+  }
+
+  // Double-tap the photo to like it (works with mouse and touch).
+  function onPhotoTap() {
+    const now = Date.now()
+    if (now - lastTap.current < 300) {
+      lastTap.current = 0
+      setBurst(true); setTimeout(() => setBurst(false), 700)
+      void setLike(true)
+    } else lastTap.current = now
   }
 
   async function toggleSave() {
-    if (!me) return
+    if (!me || saveBusy.current) return
+    saveBusy.current = true
     const next = !saved
     setSaved(next)
     const { error } = next
       ? await supabase.from('saves').insert({ user_id: me.id, post_id: post.id })
       : await supabase.from('saves').delete().eq('user_id', me.id).eq('post_id', post.id)
-    if (error && error.code !== '23505') setSaved(!next)
+    saveBusy.current = false
+    if (error && error.code !== '23505') {
+      setSaved(!next)
+      return setNote(friendly(error, "We couldn't update your saved posts. Please try again."))
+    }
+    if (next) { setNote('Saved. Find it on your profile under Saved.'); setTimeout(() => setNote(''), 2500) }
   }
 
   async function signal(table: 'see_less' | 'reports', message: string) {
@@ -96,9 +126,14 @@ export default function PostCard({ post, surface, onHide, onDeleted }: Props) {
     setTimeout(() => onHide?.(post.id), 1200)
   }
 
+  // Phone share sheet when available, otherwise copy the link.
   async function share() {
     const url = `${location.origin}/p/${post.id}`
-    try { await navigator.clipboard.writeText(url); setNote('Link copied') } catch { setNote(url) }
+    if (navigator.share) {
+      try { await navigator.share({ title: `Post by ${post.author?.username ?? 'Chronos'}`, text: caption.slice(0, 100), url }); return }
+      catch (e) { if ((e as Error).name === 'AbortError') return }
+    }
+    try { await navigator.clipboard.writeText(url); setNote('Link copied.') } catch { setNote(url) }
     setTimeout(() => setNote(''), 2000)
   }
 
@@ -110,7 +145,7 @@ export default function PostCard({ post, surface, onHide, onDeleted }: Props) {
           <Avatar src={post.author?.avatar_url} name={name} />
           <span className="text-sm font-semibold">{name}</span>
         </Link>
-        <span className="text-xs text-neutral-500">· {timeAgo(post.created_at)}</span>
+        <Link to={`/p/${post.id}${from}`} className="text-xs text-neutral-500 hover:underline">· {timeAgo(post.created_at)}</Link>
         <div className="relative ml-auto">
           <button onClick={() => setMenu(!menu)} aria-label="More options" className="p-1"><Ellipsis size={20} /></button>
           {menu && (
@@ -144,22 +179,29 @@ export default function PostCard({ post, surface, onHide, onDeleted }: Props) {
         </div>
       </div>
 
-      <Link to={`/p/${post.id}${surface ? `?from=${surface}` : ''}`}>
+      <div className="relative select-none" onPointerUp={onPhotoTap}>
         <PostImage src={post.image_url} alt={caption || `Post by ${name}`} className="aspect-square w-full" />
-      </Link>
+        {burst && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
+            <Heart size={96} className="heart-burst fill-white text-white drop-shadow-lg" />
+          </div>
+        )}
+      </div>
 
       <div className="flex items-center gap-4 px-4 pt-3">
-        <button onClick={toggleLike} aria-label={liked ? 'Unlike' : 'Like'}>
+        <button onClick={() => setLike(!liked)} aria-label={liked ? 'Unlike' : 'Like'} aria-pressed={liked}>
           <Heart size={24} className={liked ? 'fill-rose-500 text-rose-500' : ''} />
         </button>
-        <Link to={`/p/${post.id}`} aria-label="Comments"><MessageCircle size={24} /></Link>
+        <Link to={`/p/${post.id}${from}#comments`} aria-label="Comments"><MessageCircle size={24} /></Link>
         <button onClick={share} aria-label="Share"><Send size={24} /></button>
-        <button onClick={toggleSave} aria-label={saved ? 'Unsave' : 'Save'} className="ml-auto">
+        <button onClick={toggleSave} aria-label={saved ? 'Unsave' : 'Save'} aria-pressed={saved} className="ml-auto">
           <Bookmark size={24} className={saved ? 'fill-neutral-900' : ''} />
         </button>
       </div>
       <div className="space-y-1 px-4 pt-2 text-sm">
-        <p className="font-semibold">{likes} {likes === 1 ? 'like' : 'likes'}</p>
+        {likes > 0
+          ? <Link to={`/p/${post.id}/likes`} className="block font-semibold hover:underline">{likes} {likes === 1 ? 'like' : 'likes'}</Link>
+          : <p className="text-neutral-500">Be the first to like this</p>}
         {editing ? (
           <div className="space-y-2">
             <textarea className="input min-h-20" value={draft} maxLength={CAPTION_MAX} onChange={(e) => setDraft(e.target.value)} aria-label="Edit caption" autoFocus />
@@ -169,7 +211,7 @@ export default function PostCard({ post, surface, onHide, onDeleted }: Props) {
             </div>
           </div>
         ) : caption && <p className="whitespace-pre-line break-words"><Link to={`/u/${name}`} className="mr-1 font-semibold">{name}</Link>{caption}</p>}
-        {post.comment_count > 0 && <Link to={`/p/${post.id}`} className="text-neutral-500">View all {post.comment_count} comments</Link>}
+        {post.comment_count > 0 && <Link to={`/p/${post.id}${from}#comments`} className="block text-neutral-500">View {post.comment_count === 1 ? '1 comment' : `all ${post.comment_count} comments`}</Link>}
         {note && <p className="rounded-md bg-neutral-100 px-3 py-2 text-neutral-700">{note}</p>}
       </div>
       {why && surface && <WhyModal postId={post.id} surface={surface} onClose={() => setWhy(false)} />}

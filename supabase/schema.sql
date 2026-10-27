@@ -68,6 +68,7 @@ create table comments (
   created_at timestamptz not null default now()
 );
 create index on comments (post_id, created_at);
+alter table comments add constraint comments_body_not_blank check (btrim(body) <> '');  -- Module 8
 
 create table saves (
   user_id    uuid not null references profiles(id) on delete cascade,
@@ -295,6 +296,9 @@ create policy "unlike as self" on likes for delete to authenticated using (user_
 create policy "comments readable" on comments for select to authenticated using (true);
 create policy "comment as self"   on comments for insert to authenticated with check (user_id = (select auth.uid()));
 create policy "delete own comment" on comments for delete to authenticated using (user_id = (select auth.uid()));
+-- Module 8: post authors may remove comments on their own posts.
+create policy "post author removes comments" on comments for delete to authenticated
+  using (exists (select 1 from posts p where p.id = comments.post_id and p.author_id = (select auth.uid())));
 
 -- Private signals: only the owner sees their saves / see-less / reports.
 create policy "own saves"    on saves    for all to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
@@ -327,6 +331,8 @@ grant update (username, full_name, bio, avatar_url, interests, onboarded) on pro
 -- Posts: authors may edit only the caption (Module 3).
 revoke update on posts from authenticated;
 grant update (caption) on posts to authenticated;
+-- Comments, likes, saves, see_less, reports, follows are never updated (Module 8).
+revoke update on comments, likes, saves, see_less, reports, follows from authenticated;
 
 -- Messages: recipients may change seen_at only (column-level grant).
 revoke update on messages from authenticated;

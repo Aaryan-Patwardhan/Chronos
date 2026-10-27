@@ -15,6 +15,7 @@ import Notifications from './pages/Notifications'
 import Settings from './pages/Settings'
 import EditProfile from './pages/EditProfile'
 import FollowList from './pages/FollowList'
+import LikesList from './pages/LikesList'
 
 export default function App() {
   const { session, me, ready, settingUp } = useAuth()
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="u/:username/followers" element={<FollowList kind="followers" />} />
         <Route path="u/:username/following" element={<FollowList kind="following" />} />
         <Route path="p/:id" element={<PostPage />} />
+        <Route path="p/:id/likes" element={<LikesList />} />
         <Route path="messages" element={<Messages />} />
         <Route path="messages/:userId" element={<Thread />} />
         <Route path="notifications" element={<Notifications />} />
